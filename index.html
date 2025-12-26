@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>최병관의 규제 격파</title>
     
-    <!-- 필수 라이브러리 로드 -->
+    <!-- 필수 라이브러리 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -13,7 +13,7 @@
     
     <style>
         body {
-            touch-action: none; /* 모바일 터치 스크롤 방지 */
+            touch-action: none;
             overscroll-behavior: none;
             user-select: none;
             -webkit-user-select: none;
@@ -40,68 +40,65 @@
 
         // ==================================================================================
         // [설정] 이미지 경로
-        // 깃허브에 candidate.png 파일을 같이 올리면 자동으로 후보 얼굴이 적용됩니다.
+        // 1. 후보님의 사진 파일 이름을 'candidate.png'로 변경하세요.
+        // 2. 이 index.html 파일과 같은 폴더에 두세요.
         // ==================================================================================
         const CANDIDATE_IMG_PATH = "./candidate.png"; 
 
         // --- Icons ---
-        const Play = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
+        const Play = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
         const RotateCcw = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>);
         const Share2 = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>);
         const Zap = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>);
         const Download = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>);
         const Camera = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>);
         const CheckCircle = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>);
-        const ArrowRight = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>);
         const Target = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>);
+        const ArrowRight = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>);
+        const User = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>);
 
-        // ==================================================================================
-        // 1. INTRO SCREEN (소개 화면)
-        // ==================================================================================
+        // ------------------------------------------------------------
+        // 1. INTRO SCREEN
+        // ------------------------------------------------------------
         const IntroScreen = ({ onStart }) => {
+            const [imgError, setImgError] = useState(false);
+
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 max-w-md mx-auto relative overflow-hidden animate-fade-in">
-                    
-                    {/* Background Effect */}
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
                         <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500 rounded-full blur-3xl"></div>
                         <div className="absolute bottom-10 right-10 w-40 h-40 bg-yellow-500 rounded-full blur-3xl"></div>
                     </div>
 
-                    {/* Header */}
                     <div className="text-center z-10 mb-8">
                         <div className="inline-block p-2 bg-blue-900/50 rounded-full border border-blue-500/30 mb-4 shadow-lg shadow-blue-500/20">
                             <span className="text-blue-300 text-xs font-bold px-2">익산 대전환 프로젝트</span>
                         </div>
                         <h1 className="text-4xl font-black mb-2 leading-tight">
                             답답한 규제,<br/>
-                            <span className="gradient-text">최병관</span>이 깹니다!
+                            <span className="gradient-text">행정전문가</span>가 깹니다!
                         </h1>
-                        <p className="text-slate-400 text-sm">
-                            "말뿐인 정치는 그만! 행동으로 보여드립니다."
-                        </p>
+                        <p className="text-slate-400 text-sm">"규제는 아는 사람만이 제대로 깰 수 있습니다."</p>
                     </div>
 
-                    {/* Candidate Profile */}
                     <div className="relative mb-10 group cursor-pointer" onClick={onStart}>
                         <div className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)] overflow-hidden bg-blue-600 relative z-10 transition-transform duration-300 hover:scale-105 flex items-center justify-center">
-                            {/* 이미지 로드 실패 시 대체 텍스트 표시 */}
-                            <img 
-                                src={CANDIDATE_IMG_PATH} 
-                                alt="최병관" 
-                                className="w-full h-full object-cover" 
-                                onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.parentElement.innerHTML = '<div class="text-white font-bold text-center p-4">최병관<br/>후보</div>';
-                                }}
-                            />
+                            {!imgError ? (
+                                <img 
+                                    src={CANDIDATE_IMG_PATH} 
+                                    alt="최병관" 
+                                    className="w-full h-full object-cover" 
+                                    onError={() => setImgError(true)}
+                                />
+                            ) : (
+                                <User size={64} className="text-white opacity-80" />
+                            )}
                         </div>
                         <div className="absolute -bottom-3 -right-3 bg-red-500 text-white p-3 rounded-full shadow-lg z-20 animate-bounce">
                             <Play className="w-6 h-6" />
                         </div>
                     </div>
 
-                    {/* Mission List */}
                     <div className="w-full bg-blue-900/30 p-5 rounded-2xl border border-blue-500/20 mb-8">
                         <h3 className="text-center font-bold text-blue-300 mb-4 flex items-center justify-center">
                             <Zap className="w-4 h-4 mr-2" /> 3대 핵심 미션
@@ -113,7 +110,6 @@
                         </ul>
                     </div>
 
-                    {/* CTA Button */}
                     <button 
                         onClick={onStart}
                         className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black text-lg py-4 rounded-xl shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center group animate-pulse"
@@ -121,17 +117,14 @@
                         <Play className="w-6 h-6 mr-2 group-hover:scale-110 transition-transform" />
                         지금 바로 출동하기
                     </button>
-
-                    <p className="mt-6 text-xs text-slate-500 text-center">
-                        익산시장 예비후보 최병관 | 선거캠프 전략기획실
-                    </p>
+                    <p className="mt-6 text-xs text-slate-500 text-center">익산시장 예비후보 최병관 | 선거캠프 전략기획실</p>
                 </div>
             );
         };
 
-        // ==================================================================================
-        // 2. GAME SCREEN (게임 화면 - 규제격파)
-        // ==================================================================================
+        // ------------------------------------------------------------
+        // 2. GAME SCREEN
+        // ------------------------------------------------------------
         const GameScreen = ({ onBackToIntro }) => {
             const canvasRef = useRef(null);
             const candidateImageRef = useRef(null);
@@ -142,7 +135,7 @@
             const CONTROL_HEIGHT = 100; 
             const GAME_HEIGHT = HEIGHT - CONTROL_HEIGHT; 
             
-            const PADDLE_WIDTH_BASE = 80;
+            const PADDLE_WIDTH = 80;
             const PADDLE_HEIGHT = 15;
             const BALL_RADIUS = 6;
             const BRICK_ROW_COUNT = 6;
@@ -160,15 +153,13 @@
             ];
             const STAGE_TITLES = ["민생 살리기", "청년과 미래", "익산 대도약"];
             
-            // Difficulty Settings
             const DIFFICULTY_SETTINGS = {
                 EASY: { label: "쉬움", speed: 2, paddleWidth: 100, lives: 5, color: "bg-green-500", text: "text-green-400" },
                 NORMAL: { label: "보통", speed: 3, paddleWidth: 80, lives: 3, color: "bg-blue-500", text: "text-blue-400" },
                 HARD: { label: "어려움", speed: 5, paddleWidth: 60, lives: 2, color: "bg-red-500", text: "text-red-400" }
             };
 
-            // State
-            const [gameState, setGameState] = useState('START'); // 난이도 선택 화면부터 시작
+            const [gameState, setGameState] = useState('START'); 
             const [score, setScore] = useState(0);
             const [lives, setLives] = useState(3);
             const [stage, setStage] = useState(1);
@@ -191,6 +182,9 @@
                     candidateImageRef.current = img;
                     setImageLoaded(true);
                 };
+                img.onerror = () => {
+                    setImageLoaded(false); // 이미지 없으면 false 유지
+                }
             }, []);
 
             // --- Helpers ---
@@ -220,15 +214,9 @@
                     const text = policy.replace(/\n/g, " ");
                     const isSolved = achievedPolicies.includes(text);
                     ctx.fillStyle = "#1e293b";
-                    
-                    // roundRect polyfill simple rect if needed, but modern browsers support it
-                    if (ctx.roundRect) {
-                        ctx.roundRect(40, startY + (i*40) - 20, WIDTH-80, 30, 5);
-                    } else {
-                        ctx.fillRect(40, startY + (i*40) - 20, WIDTH-80, 30);
-                    }
+                    if (ctx.roundRect) ctx.roundRect(40, startY + (i*40) - 20, WIDTH-80, 30, 5);
+                    else ctx.fillRect(40, startY + (i*40) - 20, WIDTH-80, 30);
                     ctx.fill();
-
                     ctx.font = "16px sans-serif";
                     ctx.fillText(isSolved ? "✅" : "❌", 50, startY + (i*40));
                     ctx.fillStyle = isSolved ? "#ffffff" : "#94a3b8";
@@ -240,7 +228,6 @@
                     ctx.fillText(isSolved ? "해결완료" : "미해결", WIDTH-50, startY + (i*40));
                     ctx.textAlign = "left";
                 });
-
                 const footerY = HEIGHT - 100;
                 ctx.textAlign = "center";
                 ctx.fillStyle = "#3b82f6";
@@ -283,7 +270,6 @@
                 const newBricks = [];
                 const stagePolicies = POLICY_LIST[(currentStage - 1) % POLICY_LIST.length];
                 let policyIndex = 0;
-                // [난이도 조절] 스테이지 1은 3줄만 배치, 나머지는 6줄
                 const currentRowCount = currentStage === 1 ? 3 : BRICK_ROW_COUNT;
 
                 for (let c = 0; c < BRICK_COL_COUNT; c++) {
@@ -296,11 +282,7 @@
                             type = 3; hp = 1; color = "#eab308"; text = stagePolicies[policyIndex++];
                         } else if (type === 1) { text = "규제"; }
 
-                        newBricks.push({ 
-                            x: (c * (BRICK_WIDTH + BRICK_PADDING)) + BRICK_OFFSET_LEFT, 
-                            y: (r * (BRICK_HEIGHT + BRICK_PADDING)) + BRICK_OFFSET_TOP, 
-                            status: 1, type, hp, color, text
-                        });
+                        newBricks.push({ x: (c * (BRICK_WIDTH + BRICK_PADDING)) + BRICK_OFFSET_LEFT, y: (r * (BRICK_HEIGHT + BRICK_PADDING)) + BRICK_OFFSET_TOP, status: 1, type, hp, color, text });
                     }
                 }
                 let brickIdx = 0;
@@ -315,16 +297,13 @@
 
             const update = () => {
                 if (gameState !== 'PLAYING') return;
-
                 const currentPaddleWidth = paddleRef.current.width;
                 if (paddleRef.current.x < 0) paddleRef.current.x = 0;
                 if (paddleRef.current.x + currentPaddleWidth > WIDTH) paddleRef.current.x = WIDTH - currentPaddleWidth;
 
                 const ball = ballRef.current;
                 if (ball.active) {
-                    ball.x += ball.dx;
-                    ball.y += ball.dy;
-
+                    ball.x += ball.dx; ball.y += ball.dy;
                     if (ball.x + ball.dx > WIDTH - BALL_RADIUS || ball.x + ball.dx < BALL_RADIUS) ball.dx = -ball.dx;
                     if (ball.y + ball.dy < BALL_RADIUS) ball.dy = -ball.dy;
                     else if (ball.y + ball.dy > GAME_HEIGHT - BALL_RADIUS) {
@@ -337,36 +316,21 @@
                     }
 
                     const PADDLE_Y = GAME_HEIGHT - PADDLE_HEIGHT - 5;
-                    if (
-                        ball.y + BALL_RADIUS >= PADDLE_Y &&
-                        ball.y - BALL_RADIUS <= PADDLE_Y + PADDLE_HEIGHT &&
-                        ball.x >= paddleRef.current.x &&
-                        ball.x <= paddleRef.current.x + currentPaddleWidth &&
-                        ball.dy > 0 
-                    ) {
+                    if (ball.y + BALL_RADIUS >= PADDLE_Y && ball.y - BALL_RADIUS <= PADDLE_Y + PADDLE_HEIGHT && ball.x >= paddleRef.current.x && ball.x <= paddleRef.current.x + currentPaddleWidth && ball.dy > 0) {
                         let hitPoint = ball.x - (paddleRef.current.x + currentPaddleWidth / 2);
                         hitPoint = hitPoint / (currentPaddleWidth / 2);
                         let angle = hitPoint * (Math.PI / 3);
-                        
-                        // [속도 보정]
                         let speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy);
                         speed = Math.min(speed * 1.02, 10); 
-                        
-                        ball.dx = speed * Math.sin(angle);
-                        ball.dy = -speed * Math.cos(angle);
-                        ball.y = PADDLE_Y - BALL_RADIUS;
+                        ball.dx = speed * Math.sin(angle); ball.dy = -speed * Math.cos(angle); ball.y = PADDLE_Y - BALL_RADIUS;
                     }
 
                     let activeBricksCount = 0;
                     bricksRef.current.forEach(b => {
                         if (b.status === 1) {
                             activeBricksCount++;
-                            if (
-                                ball.x > b.x && ball.x < b.x + BRICK_WIDTH && 
-                                ball.y > b.y && ball.y < b.y + BRICK_HEIGHT
-                            ) {
-                                ball.dy = -ball.dy;
-                                b.hp -= 1;
+                            if (ball.x > b.x && ball.x < b.x + BRICK_WIDTH && ball.y > b.y && ball.y < b.y + BRICK_HEIGHT) {
+                                ball.dy = -ball.dy; b.hp -= 1;
                                 createParticles(b.x + BRICK_WIDTH/2, b.y + BRICK_HEIGHT/2, b.color);
                                 if (b.hp <= 0) {
                                     b.status = 0;
@@ -408,9 +372,7 @@
 
             const resetBall = () => {
                 const settings = DIFFICULTY_SETTINGS[difficulty];
-                // 스테이지 1은 강제로 느리게 (2.0)
                 let currentSpeed = stage === 1 ? 2.0 : settings.speed;
-                
                 const dirX = Math.random() > 0.5 ? currentSpeed : -currentSpeed;
                 ballRef.current = { x: WIDTH / 2, y: GAME_HEIGHT - 30, dx: dirX, dy: -currentSpeed, speedBase: currentSpeed, active: false };
             };
