@@ -6,7 +6,7 @@
     
     <!-- 오픈 그래프 -->
     <meta property="og:title" content="최병관의 규제 격파" />
-    <meta property="og:description" content="답답한 규제, 최병관과 함께 시원하게 날려버리세요! 잼잼도시 익산 대전환 프로젝트." />
+    <meta property="og:description" content="잼잼도시익산!최병관이 드리는 잼있는 게임." />
     <meta property="og:image" content="./thumbnail.png" />
     <meta property="og:type" content="website" />
 
@@ -22,7 +22,7 @@
     <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 4. Firebase 라이브러리 (Compat 버전) -->
+    <!-- 4. Firebase 라이브러리 (호환성 버전) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -57,26 +57,31 @@
         // [설정] 이미지 경로
         const CANDIDATE_IMG_PATH = "./candidate.png";
 
-        // [설정] Firebase 초기화 (안전 모드)
+        // [설정] Firebase 초기화 (안전 모드 + 리얼 카운터)
         let db = null;
         let auth = null;
+        let isFirebaseAvailable = false;
         let appId = 'iksan-campaign';
 
+        // Firebase 초기화 시도
         try {
             if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-                const configRaw = window.__firebase_config;
-                if (configRaw) {
+                // 1. 환경 변수 확인 (Canvas 환경)
+                let configRaw = window.__firebase_config;
+                // 2. 환경 변수가 없으면 GitHub 배포용으로 빈 객체 처리 (에러 방지)
+                if (!configRaw) {
+                    console.log("No Firebase config. Switching to Local Counter Mode.");
+                } else {
                     const config = JSON.parse(configRaw);
                     firebase.initializeApp(config);
                     db = firebase.firestore();
                     auth = firebase.auth();
                     appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'iksan-campaign';
-                } else {
-                    console.log("Firebase config not found. Local mode.");
+                    isFirebaseAvailable = true;
                 }
             }
         } catch(e) { 
-            console.log("Firebase init skipped:", e); 
+            console.log("Firebase init error (using local mode):", e); 
         }
 
         // --- Icons ---
@@ -87,69 +92,81 @@
         const Download = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>);
         const Camera = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>);
         const CheckCircle = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>);
+        const XCircle = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>);
+        const ArrowRight = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>);
         const Target = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>);
         const User = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>);
         const Users = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>);
-        const ArrowRight = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>);
 
         // ==================================================================================
         // 1. INTRO SCREEN
         // ==================================================================================
         const IntroScreen = ({ onStart }) => {
             const [imgError, setImgError] = useState(false);
-            const [visitorCount, setVisitorCount] = useState(12840);
+            const [visitorCount, setVisitorCount] = useState(0);
 
             useEffect(() => {
                 let unsubscribe = null;
 
                 const runLocalMode = () => {
-                    // 로컬 시뮬레이션: 방문할 때마다 숫자 증가 (localStorage)
-                    const saved = parseInt(localStorage.getItem('local_visitor_count') || '12840');
+                    // 서버 연결 실패 시: 로컬 저장소 카운트 (안전장치)
+                    // "가짜 숫자"가 아니라 "내 접속 횟수"를 보여줌 -> 정직함 유지
+                    const saved = parseInt(localStorage.getItem('iksan_real_visits') || '0');
                     const nextCount = saved + 1;
                     setVisitorCount(nextCount);
-                    localStorage.setItem('local_visitor_count', nextCount.toString());
+                    localStorage.setItem('iksan_real_visits', nextCount.toString());
                 };
 
                 const initFirebaseLogic = async () => {
-                    if (!db || !auth) {
+                    // Firebase 설정이 없거나 초기화 실패 시 바로 로컬 모드
+                    if (!isFirebaseAvailable || !auth || !db) {
                         runLocalMode();
                         return;
                     }
 
                     try {
-                        // 인증 (익명)
-                        await auth.signInAnonymously().catch(e => { throw e; });
+                        // 1. 익명 로그인 시도
+                        if (window.__initial_auth_token) {
+                            await auth.signInWithCustomToken(window.__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
 
-                        // 경로: artifacts/{appId}/public/data/visitor_stats/global_counter
-                        // 주의: 규칙상 public 읽기/쓰기가 허용되어야 함
+                        // 2. DB 경로 (공용 공간)
                         const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('visitor_stats').doc('global_counter');
 
-                        // 1. 카운트 증가 시도
-                        docRef.set({ count: firebase.firestore.FieldValue.increment(1) }, { merge: true })
-                            .catch(err => {
-                                console.warn("Firebase increment failed (permissions?):", err);
-                                // 여기서 에러가 나면 로컬 모드로 전환하지 않고, 읽기만 시도하거나 로컬로 전환
-                                // 권한 문제라면 읽기도 안 될 가능성 높음 -> 로컬로 전환
-                                runLocalMode();
-                            });
+                        // 3. 카운트 증가 (트랜잭션 대신 단순 increment 사용)
+                        // 권한 오류가 나면 catch로 빠져서 로컬 모드로 전환됨
+                        db.runTransaction(async (transaction) => {
+                            const sfDoc = await transaction.get(docRef);
+                            if (!sfDoc.exists) {
+                                transaction.set(docRef, { count: 1 });
+                            } else {
+                                const newCount = (sfDoc.data().count || 0) + 1;
+                                transaction.update(docRef, { count: newCount });
+                            }
+                        }).catch(err => {
+                            console.warn("DB Update Failed (Permission?):", err);
+                            runLocalMode(); // 쓰기 실패 시 로컬 모드
+                        });
 
-                        // 2. 실시간 리스너
+                        // 4. 실시간 리스너 (읽기)
                         unsubscribe = docRef.onSnapshot((snap) => {
                             if (snap.exists) {
                                 setVisitorCount(snap.data().count || 0);
                             }
                         }, (error) => {
-                            console.warn("Snapshot failed (switching to local):", error);
-                            runLocalMode();
+                            console.warn("DB Read Failed:", error);
+                            // 읽기 실패 시 이미 runLocalMode가 실행되었거나 실행될 예정
                         });
 
                     } catch (e) {
-                        console.warn("Firebase logic error:", e);
+                        console.warn("Firebase Error:", e);
                         runLocalMode();
                     }
                 };
 
-                // Firebase 로드 시간 벌기
+                // 초기화 지연 (라이브러리 로딩 확보)
                 setTimeout(initFirebaseLogic, 500);
 
                 return () => { if(unsubscribe) unsubscribe(); };
@@ -159,9 +176,9 @@
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 max-w-md mx-auto relative overflow-hidden animate-fade-in">
                     
                     {/* Visitor Count Badge */}
-                    <div className="absolute top-4 right-4 bg-slate-800/80 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30 flex items-center shadow-lg z-20 animate-pulse">
+                    <div className="absolute top-4 right-4 bg-slate-800/80 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30 flex items-center shadow-lg z-20">
                         <Users size={12} className="mr-1"/>
-                        누적 참여: {visitorCount.toLocaleString()}명
+                        참여: {visitorCount > 0 ? visitorCount.toLocaleString() : "..."}명
                     </div>
 
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
@@ -181,7 +198,7 @@
                     </div>
 
                     <div className="relative mb-10 group cursor-pointer" onClick={onStart}>
-                        <div className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)] overflow-hidden bg-blue-600 relative z-10 transition-transform duration-300 hover:scale-105 flex items-center justify-center">
+                        <div className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)] overflow-hidden bg-blue-600 relative z-10 flex items-center justify-center">
                             {!imgError ? (
                                 <img 
                                     src={CANDIDATE_IMG_PATH} 
@@ -225,7 +242,7 @@
         };
 
         // ------------------------------------------------------------
-        // 2. GAME SCREEN
+        // 2. GAME SCREEN (최적화 버전)
         // ------------------------------------------------------------
         const GameScreen = ({ onBackToIntro }) => {
             const canvasRef = useRef(null);
@@ -254,19 +271,31 @@
             ];
             const STAGE_TITLES = ["민생 살리기", "청년과 미래", "익산 대도약"];
             
+            // Difficulty Settings
             const DIFFICULTY_SETTINGS = {
                 EASY: { label: "쉬움", speed: 2, paddleWidth: 100, lives: 5, color: "bg-green-500", text: "text-green-400" },
                 NORMAL: { label: "보통", speed: 3, paddleWidth: 80, lives: 3, color: "bg-blue-500", text: "text-blue-400" },
                 HARD: { label: "어려움", speed: 5, paddleWidth: 60, lives: 2, color: "bg-red-500", text: "text-red-400" }
             };
 
-            const [gameState, setGameState] = useState('START'); 
-            const [score, setScore] = useState(0);
-            const [lives, setLives] = useState(3);
-            const [stage, setStage] = useState(1);
+            // Refs for Game State
+            const gameStateRef = useRef('START');
+            const scoreRef = useRef(0);
+            const livesRef = useRef(3);
+            const stageRef = useRef(1);
+            const difficultyRef = useRef('NORMAL');
+            const achievedPoliciesRef = useRef([]);
+
+            // React State for UI updates
+            const [uiState, setUiState] = useState({
+                gameState: 'START',
+                score: 0,
+                lives: 3,
+                stage: 1,
+                difficulty: 'NORMAL',
+                achievedPolicies: []
+            });
             const [imageLoaded, setImageLoaded] = useState(false);
-            const [achievedPolicies, setAchievedPolicies] = useState([]);
-            const [difficulty, setDifficulty] = useState('NORMAL');
             const [resultImage, setResultImage] = useState(null);
 
             const paddleRef = useRef({ x: (WIDTH - 80) / 2, width: 80 });
@@ -277,14 +306,49 @@
             const floatingTextsRef = useRef([]);
             const requestIdRef = useRef(null);
 
+            // Sync Refs and State helper
+            const updateGameState = (newState) => {
+                gameStateRef.current = newState;
+                setUiState(prev => ({ ...prev, gameState: newState }));
+            };
+            const updateScore = (newScore) => {
+                scoreRef.current = newScore;
+                setUiState(prev => ({ ...prev, score: newScore }));
+            };
+            const updateLives = (newLives) => {
+                livesRef.current = newLives;
+                setUiState(prev => ({ ...prev, lives: newLives }));
+            };
+            const updateStage = (newStage) => {
+                stageRef.current = newStage;
+                setUiState(prev => ({ ...prev, stage: newStage }));
+            };
+            const updateDifficulty = (newDiff) => {
+                difficultyRef.current = newDiff;
+                setUiState(prev => ({ ...prev, difficulty: newDiff }));
+            };
+            const addAchievedPolicy = (policy) => {
+                if (!achievedPoliciesRef.current.includes(policy)) {
+                    achievedPoliciesRef.current.push(policy);
+                    setUiState(prev => ({ ...prev, achievedPolicies: [...achievedPoliciesRef.current] }));
+                }
+            };
+            const forceUpdate = () => {
+                setUiState({
+                    gameState: gameStateRef.current,
+                    score: scoreRef.current,
+                    lives: livesRef.current,
+                    stage: stageRef.current,
+                    difficulty: difficultyRef.current,
+                    achievedPolicies: [...achievedPoliciesRef.current]
+                });
+            };
+
             useEffect(() => {
                 const img = new Image();
                 img.crossOrigin = "anonymous";
                 img.src = CANDIDATE_IMG_PATH;
-                img.onload = () => {
-                    candidateImageRef.current = img;
-                    setImageLoaded(true);
-                };
+                img.onload = () => { candidateImageRef.current = img; setImageLoaded(true); };
                 img.onerror = () => { setImageLoaded(false); }
             }, []);
 
@@ -299,14 +363,14 @@
                 ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, 360, 640);
                 
                 ctx.textAlign = "center";
-                ctx.fillStyle = gameState === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; 
+                ctx.fillStyle = gameStateRef.current === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; 
                 ctx.font = "900 32px sans-serif";
-                const title = gameState === 'STAGE_CLEAR' ? `STAGE ${stage} 완수!` : "도전 결과";
+                const title = gameStateRef.current === 'STAGE_CLEAR' ? `STAGE ${stageRef.current} 완수!` : "도전 결과";
                 ctx.fillText(title, 180, 80);
 
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 24px sans-serif";
-                ctx.fillText(`${score}점`, 180, 120);
+                ctx.fillText(`${scoreRef.current}점`, 180, 120);
 
                 // 사진
                 ctx.save(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
@@ -319,16 +383,14 @@
                 ctx.restore();
                 ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = "#fbbf24"; ctx.stroke();
 
-                const policies = POLICY_LIST[(stage - 1) % POLICY_LIST.length];
+                const policies = POLICY_LIST[(stageRef.current - 1) % POLICY_LIST.length];
                 let startY = 300;
-                ctx.font = "bold 16px sans-serif";
-                ctx.fillStyle = "#60a5fa";
-                ctx.fillText(`[ ${STAGE_TITLES[(stage-1)%STAGE_TITLES.length]} 미션 ]`, 180, 280);
-
+                ctx.font = "bold 16px sans-serif"; ctx.fillStyle = "#60a5fa";
+                ctx.fillText(`[ ${STAGE_TITLES[(stageRef.current-1)%STAGE_TITLES.length]} 미션 ]`, 180, 280);
                 ctx.textAlign = "left";
                 policies.forEach((policy, i) => {
                     const text = policy.replace(/\n/g, " ");
-                    const isSolved = achievedPolicies.includes(text);
+                    const isSolved = achievedPoliciesRef.current.includes(text);
                     ctx.fillStyle = "#1e293b";
                     if (ctx.roundRect) ctx.roundRect(40, startY + (i*50), 280, 40, 8); else ctx.fillRect(40, startY + (i*50), 280, 40);
                     ctx.fill();
@@ -378,7 +440,7 @@
             const handleShareLink = async () => {
                 const shareData = {
                     title: '최병관의 규제 격파',
-                    text: `저는 최병관 후보와 함께 규제를 격파하고 ${score}점을 달성했습니다! 당신도 도전해보세요.`,
+                    text: `저는 최병관 후보와 함께 규제를 격파하고 ${scoreRef.current}점을 달성했습니다! 당신도 도전해보세요.`,
                     url: window.location.href
                 };
                 if (navigator.share) {
@@ -429,7 +491,8 @@
             };
 
             const update = () => {
-                if (gameState !== 'PLAYING') return;
+                if (gameStateRef.current !== 'PLAYING') return;
+
                 const currentPaddleWidth = paddleRef.current.width;
                 if (paddleRef.current.x < 0) paddleRef.current.x = 0;
                 if (paddleRef.current.x + currentPaddleWidth > WIDTH) paddleRef.current.x = WIDTH - currentPaddleWidth;
@@ -440,13 +503,12 @@
                     if (ball.x + ball.dx > WIDTH - BALL_RADIUS || ball.x + ball.dx < BALL_RADIUS) ball.dx = -ball.dx;
                     if (ball.y + ball.dy < BALL_RADIUS) ball.dy = -ball.dy;
                     else if (ball.y + ball.dy > GAME_HEIGHT - BALL_RADIUS) {
-                        setLives(prev => {
-                            const newLives = prev - 1;
-                            if (newLives <= 0) setGameState('GAMEOVER');
-                            else resetBall();
-                            return newLives;
-                        });
+                        const newLives = livesRef.current - 1;
+                        updateLives(newLives);
+                        if (newLives <= 0) updateGameState('GAMEOVER');
+                        else resetBall();
                     }
+
                     const PADDLE_Y = GAME_HEIGHT - PADDLE_HEIGHT - 5;
                     if (ball.y + BALL_RADIUS >= PADDLE_Y && ball.y - BALL_RADIUS <= PADDLE_Y + PADDLE_HEIGHT && ball.x >= paddleRef.current.x && ball.x <= paddleRef.current.x + currentPaddleWidth && ball.dy > 0) {
                         let hitPoint = ball.x - (paddleRef.current.x + currentPaddleWidth / 2);
@@ -456,37 +518,43 @@
                         speed = Math.min(speed * 1.02, 10); 
                         ball.dx = speed * Math.sin(angle); ball.dy = -speed * Math.cos(angle); ball.y = PADDLE_Y - BALL_RADIUS;
                     }
+
                     let activeBricksCount = 0;
                     bricksRef.current.forEach(b => {
                         if (b.status === 1) {
                             activeBricksCount++;
                             if (ball.x > b.x && ball.x < b.x + BRICK_WIDTH && ball.y > b.y && ball.y < b.y + BRICK_HEIGHT) {
                                 ball.dy = -ball.dy; b.hp -= 1;
-                                createParticles(b.x + BRICK_WIDTH/2, b.y + BRICK_HEIGHT/2, b.color);
+                                for(let i=0; i<8; i++) particlesRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y + BRICK_HEIGHT/2, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 1.0, color: b.color });
+                                
                                 if (b.hp <= 0) {
                                     b.status = 0;
-                                    setScore(s => s + (b.type === 3 ? 100 : 10)); 
+                                    updateScore(scoreRef.current + (b.type === 3 ? 100 : 10));
                                     if (b.type === 3) {
-                                        createFloatingText(b.x + BRICK_WIDTH/2, b.y, "공약 실현!", "#eab308");
-                                        const cleanText = b.text.replace(/\n/g, " ");
-                                        setAchievedPolicies(prev => { if(!prev.includes(cleanText)) return [...prev, cleanText]; return prev; });
-                                        dropItem(b.x + BRICK_WIDTH/2, b.y + BRICK_HEIGHT/2, 'BUDGET');
+                                        floatingTextsRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y, text: "공약 실현!", color: "#eab308", life: 1.0 });
+                                        const policyText = b.text.replace(/\n/g, " ");
+                                        addAchievedPolicy(policyText);
+                                        itemsRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y + BRICK_HEIGHT/2, type: 'BUDGET', active: true });
                                     } else if (Math.random() < 0.1) {
-                                        dropItem(b.x + BRICK_WIDTH/2, b.y + BRICK_HEIGHT/2, 'NOTEBOOK');
+                                        itemsRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y + BRICK_HEIGHT/2, type: 'NOTEBOOK', active: true });
                                     }
                                 }
                             }
                         }
                     });
-                    if (activeBricksCount === 0) { ball.active = false; setGameState('STAGE_CLEAR'); }
+                    if (activeBricksCount === 0) { 
+                        ball.active = false; 
+                        updateGameState('STAGE_CLEAR');
+                    }
                 }
+
                 itemsRef.current.forEach(item => {
                     item.y += 2;
                     const PADDLE_Y = GAME_HEIGHT - PADDLE_HEIGHT - 5;
-                    const currentPaddleWidth = paddleRef.current.width;
                     if (item.active && item.y >= PADDLE_Y && item.y <= GAME_HEIGHT && item.x >= paddleRef.current.x && item.x <= paddleRef.current.x + currentPaddleWidth) {
                         item.active = false;
-                        activatePowerUp(item.type);
+                        if (item.type === 'NOTEBOOK') updateScore(scoreRef.current + 100);
+                        else if (item.type === 'BUDGET') updateScore(scoreRef.current + 500);
                     }
                 });
                 itemsRef.current = itemsRef.current.filter(i => i.active && i.y < GAME_HEIGHT);
@@ -497,39 +565,33 @@
             };
 
             const resetBall = () => {
-                const settings = DIFFICULTY_SETTINGS[difficulty];
-                let currentSpeed = stage === 1 ? 2.0 : settings.speed;
+                const settings = DIFFICULTY_SETTINGS[difficultyRef.current];
+                let currentSpeed = stageRef.current === 1 ? 2.0 : settings.speed;
                 const dirX = Math.random() > 0.5 ? currentSpeed : -currentSpeed;
                 ballRef.current = { x: WIDTH / 2, y: GAME_HEIGHT - 30, dx: dirX, dy: -currentSpeed, speedBase: currentSpeed, active: false };
             };
 
-            const nextStage = () => {
-                const next = stage + 1;
-                setStage(next);
-                setGameState('STAGE_INTRO'); 
+            const startGame = () => {
+                const settings = DIFFICULTY_SETTINGS[difficultyRef.current];
+                paddleRef.current.width = settings.paddleWidth;
+                initBricks(stageRef.current);
+                resetBall();
+                ballRef.current.active = true;
+                updateGameState('PLAYING');
             };
 
             const startStageIntro = () => {
-                setScore(0);
-                setLives(DIFFICULTY_SETTINGS[difficulty].lives);
-                setStage(1);
-                setAchievedPolicies([]); 
-                setGameState('STAGE_INTRO'); 
+                scoreRef.current = 0;
+                livesRef.current = DIFFICULTY_SETTINGS[difficultyRef.current].lives;
+                stageRef.current = 1;
+                achievedPoliciesRef.current = [];
+                updateGameState('STAGE_INTRO');
             };
 
-            const startGame = () => {
-                const settings = DIFFICULTY_SETTINGS[difficulty];
-                paddleRef.current.width = settings.paddleWidth;
-                initBricks(stage);
-                resetBall();
-                ballRef.current.active = true;
-                setGameState('PLAYING');
+            const nextStage = () => {
+                stageRef.current += 1;
+                updateGameState('STAGE_INTRO');
             };
-
-            const dropItem = (x, y, type) => { itemsRef.current.push({ x, y, type, active: true }); };
-            const createFloatingText = (x, y, text, color) => { floatingTextsRef.current.push({ x, y, text, color, life: 1.0 }); };
-            const activatePowerUp = (type) => { if (type === 'NOTEBOOK') setScore(s => s + 100); else if (type === 'BUDGET') setScore(s => s + 500); };
-            const createParticles = (x, y, color) => { for (let i = 0; i < 8; i++) { particlesRef.current.push({ x, y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 1.0, color }); } };
 
             const render = () => {
                 const canvas = canvasRef.current;
@@ -542,176 +604,141 @@
                 grad.addColorStop(0, "#1e3a8a"); grad.addColorStop(1, "#172554");
                 ctx.fillStyle = grad; ctx.fillRect(0, GAME_HEIGHT, WIDTH, CONTROL_HEIGHT);
                 ctx.beginPath(); ctx.moveTo(0, GAME_HEIGHT); ctx.lineTo(WIDTH, GAME_HEIGHT); ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = "#bfdbfe"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
-                ctx.fillText("이곳을 터치해서 좌우로 움직이세요", WIDTH/2, GAME_HEIGHT + 35);
+                
+                ctx.fillStyle = "#bfdbfe"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center"; ctx.fillText("이곳을 터치해서 좌우로 움직이세요", WIDTH/2, GAME_HEIGHT + 35);
                 ctx.fillStyle = "#ffffff"; ctx.font = "bold 18px sans-serif";
                 ctx.fillText("최병관과 함께 익산 발전하기", WIDTH/2, GAME_HEIGHT + 65);
 
-                if (gameState === 'PLAYING') {
+                if (gameStateRef.current === 'PLAYING') {
                     ctx.fillStyle = "#fff"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
-                    const stageTitle = STAGE_TITLES[(stage - 1) % STAGE_TITLES.length];
-                    ctx.fillText(`STAGE ${stage}: ${stageTitle}`, WIDTH/2, BRICK_OFFSET_TOP - 20);
+                    const stageTitle = STAGE_TITLES[(stageRef.current - 1) % STAGE_TITLES.length];
+                    ctx.fillText(`STAGE ${stageRef.current}: ${stageTitle}`, WIDTH/2, BRICK_OFFSET_TOP - 20);
                 }
 
                 bricksRef.current.forEach(b => {
                     if (b.status === 1) {
-                        ctx.beginPath(); ctx.rect(b.x, b.y, BRICK_WIDTH, BRICK_HEIGHT);
-                        ctx.fillStyle = b.color; ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.stroke(); ctx.closePath();
+                        ctx.beginPath(); ctx.rect(b.x, b.y, BRICK_WIDTH, BRICK_HEIGHT); ctx.fillStyle = b.color; ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.stroke(); ctx.closePath();
                         ctx.fillStyle = b.type === 2 ? "#fff" : "#1e293b"; ctx.font = b.type === 3 ? "bold 11px sans-serif" : "10px sans-serif";
                         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                        const lines = b.text.split('\n');
-                        const lineHeight = 12;
-                        const startY = b.y + BRICK_HEIGHT/2 - ((lines.length - 1) * lineHeight) / 2;
+                        const lines = b.text.split('\n'); const lineHeight = 12; const startY = b.y + BRICK_HEIGHT/2 - ((lines.length - 1) * lineHeight) / 2;
                         lines.forEach((line, i) => { ctx.fillText(line, b.x + BRICK_WIDTH/2, startY + (i * lineHeight)); });
                     }
                 });
 
                 const PADDLE_Y = GAME_HEIGHT - PADDLE_HEIGHT - 5;
-                const currentPaddleWidth = paddleRef.current.width;
-                if (ctx.roundRect) {
-                    ctx.beginPath(); ctx.roundRect(paddleRef.current.x, PADDLE_Y, currentPaddleWidth, PADDLE_HEIGHT, 5); ctx.fillStyle = "#2563eb"; ctx.fill(); ctx.closePath();
-                } else {
-                     ctx.fillStyle = "#2563eb"; ctx.fillRect(paddleRef.current.x, PADDLE_Y, currentPaddleWidth, PADDLE_HEIGHT);
-                }
+                if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(paddleRef.current.x, PADDLE_Y, paddleRef.current.width, PADDLE_HEIGHT, 5); ctx.fillStyle = "#2563eb"; ctx.fill(); ctx.closePath(); } 
+                else { ctx.fillStyle = "#2563eb"; ctx.fillRect(paddleRef.current.x, PADDLE_Y, paddleRef.current.width, PADDLE_HEIGHT); }
 
                 if (candidateImageRef.current && imageLoaded) {
-                    const FACE_SIZE = 30; const FACE_X = paddleRef.current.x + (currentPaddleWidth - FACE_SIZE) / 2; const FACE_Y = PADDLE_Y - FACE_SIZE + 5; 
+                    const FACE_SIZE = 30; const FACE_X = paddleRef.current.x + (paddleRef.current.width - FACE_SIZE) / 2; const FACE_Y = PADDLE_Y - FACE_SIZE + 5; 
                     ctx.save(); ctx.beginPath(); ctx.arc(FACE_X + FACE_SIZE/2, FACE_Y + FACE_SIZE/2, FACE_SIZE/2, 0, Math.PI * 2); ctx.closePath(); ctx.clip(); 
                     ctx.drawImage(candidateImageRef.current, FACE_X, FACE_Y, FACE_SIZE, FACE_SIZE); ctx.restore();
                     ctx.beginPath(); ctx.arc(FACE_X + FACE_SIZE/2, FACE_Y + FACE_SIZE/2, FACE_SIZE/2, 0, Math.PI * 2); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
                 } else {
-                    ctx.fillStyle = "#fff"; ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("최병관", paddleRef.current.x + currentPaddleWidth/2, PADDLE_Y + 11);
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("최병관", paddleRef.current.x + paddleRef.current.width/2, PADDLE_Y + 11);
                 }
 
                 const ball = ballRef.current;
-                if (gameState !== 'STAGE_CLEAR' && gameState !== 'STAGE_INTRO') {
+                if (gameStateRef.current !== 'STAGE_CLEAR' && gameStateRef.current !== 'STAGE_INTRO') {
                     ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI*2); ctx.fillStyle = "#fbbf24"; ctx.fill(); ctx.closePath();
                 }
-
-                itemsRef.current.forEach(item => {
-                    ctx.beginPath(); ctx.arc(item.x, item.y, 10, 0, Math.PI*2); ctx.fillStyle = item.type === 'NOTEBOOK' ? "#3b82f6" : "#eab308"; ctx.fill();
-                    ctx.fillStyle = "#fff"; ctx.font = "9px sans-serif"; ctx.fillText(item.type === 'NOTEBOOK' ? "수첩" : "예산", item.x, item.y + 3);
-                });
+                itemsRef.current.forEach(item => { ctx.beginPath(); ctx.arc(item.x, item.y, 10, 0, Math.PI*2); ctx.fillStyle = item.type === 'NOTEBOOK' ? "#3b82f6" : "#eab308"; ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = "9px sans-serif"; ctx.fillText(item.type === 'NOTEBOOK' ? "수첩" : "예산", item.x, item.y + 3); });
                 particlesRef.current.forEach(p => { ctx.globalAlpha = p.life; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1.0; });
                 floatingTextsRef.current.forEach(t => { ctx.globalAlpha = t.life; ctx.fillStyle = t.color; ctx.font = "bold 16px sans-serif"; ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); ctx.globalAlpha = 1.0; });
             };
 
             const gameLoop = () => { update(); render(); requestIdRef.current = requestAnimationFrame(gameLoop); };
-            useEffect(() => { if (gameState === 'PLAYING') requestIdRef.current = requestAnimationFrame(gameLoop); return () => cancelAnimationFrame(requestIdRef.current); }, [gameState]);
+            useEffect(() => { 
+                requestIdRef.current = requestAnimationFrame(gameLoop); 
+                return () => cancelAnimationFrame(requestIdRef.current); 
+            }, []);
 
             const handleTouchMove = (e) => {
-                if (gameState !== 'PLAYING') return;
+                if (gameStateRef.current !== 'PLAYING') return;
                 const rect = canvasRef.current.getBoundingClientRect();
                 const touchX = e.touches[0].clientX - rect.left;
                 paddleRef.current.x = touchX - paddleRef.current.width / 2;
             };
             const handleMouseMove = (e) => {
-                if (gameState !== 'PLAYING') return;
+                if (gameStateRef.current !== 'PLAYING') return;
                 const rect = canvasRef.current.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 paddleRef.current.x = mouseX - paddleRef.current.width / 2;
             };
-
-            const launchBall = () => { if (gameState === 'PLAYING' && !ballRef.current.active) ballRef.current.active = true; };
+            const launchBall = () => { if (gameStateRef.current === 'PLAYING' && !ballRef.current.active) ballRef.current.active = true; };
 
             return (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 font-sans p-4 touch-none select-none">
                     <div className="w-full max-w-[360px] flex justify-between items-center mb-2 text-white">
                         <div className="flex gap-4">
-                            <div><p className="text-[10px] text-slate-400">SCORE</p><p className="text-xl font-mono font-bold text-yellow-400">{score}</p></div>
-                            <div><p className="text-[10px] text-slate-400">STAGE</p><p className="text-xl font-mono font-bold">{stage}</p></div>
+                            <div><p className="text-[10px] text-slate-400">SCORE</p><p className="text-xl font-mono font-bold text-yellow-400">{uiState.score}</p></div>
+                            <div><p className="text-[10px] text-slate-400">STAGE</p><p className="text-xl font-mono font-bold">{uiState.stage}</p></div>
                         </div>
-                        <div className="flex gap-1">
-                            {[...Array(lives)].map((_, i) => (<div key={i} className="w-4 h-4 bg-red-500 rounded-full"></div>))}
-                        </div>
+                        <div className="flex gap-1">{[...Array(uiState.lives)].map((_, i) => (<div key={i} className="w-4 h-4 bg-red-500 rounded-full"></div>))}</div>
                     </div>
 
                     <div className="relative bg-slate-800 rounded-xl overflow-hidden shadow-2xl border-4 border-slate-700">
                         <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="cursor-none touch-none" onTouchMove={handleTouchMove} onMouseMove={handleMouseMove} onClick={launchBall}/>
 
-                        {gameState === 'START' && (
+                        {uiState.gameState === 'START' && (
                             <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
                                 <Zap className="w-20 h-20 text-yellow-400 mb-4 animate-pulse" />
                                 <h1 className="text-2xl font-black mb-1">규제 격파</h1>
                                 <p className="text-blue-300 font-bold mb-4 text-sm">"최병관의 정책으로 익산을 뚫어라!"</p>
-                                
                                 <div className="bg-white/10 p-3 rounded-lg w-full mb-4">
                                     <p className="text-xs text-slate-300 mb-2 font-bold">난이도 선택</p>
                                     <div className="flex gap-2 justify-center">
                                         {Object.keys(DIFFICULTY_SETTINGS).map((key) => (
-                                            <button 
-                                                key={key}
-                                                onClick={() => setDifficulty(key)}
-                                                className={`flex-1 py-2 rounded font-bold text-xs border-2 transition-all ${difficulty === key ? `${DIFFICULTY_SETTINGS[key].color} border-white text-white scale-105` : 'bg-slate-700 border-transparent text-slate-400'}`}
-                                            >
+                                            <button key={key} onClick={() => { difficultyRef.current = key; forceUpdate(); }} className={`flex-1 py-2 rounded font-bold text-xs border-2 transition-all ${uiState.difficulty === key ? `${DIFFICULTY_SETTINGS[key].color} border-white text-white scale-105` : 'bg-slate-700 border-transparent text-slate-400'}`}>
                                                 {DIFFICULTY_SETTINGS[key].label}
                                             </button>
                                         ))}
                                     </div>
-                                    <p className={`text-[10px] mt-2 ${DIFFICULTY_SETTINGS[difficulty].text}`}>
-                                        * {difficulty === 'EASY' ? "천천히 즐기세요 (막대 김)" : difficulty === 'NORMAL' ? "표준 속도입니다" : "매우 빠릅니다! (도전)"}
-                                    </p>
+                                    <p className={`text-[10px] mt-2 ${DIFFICULTY_SETTINGS[uiState.difficulty].text}`}>* {uiState.difficulty === 'EASY' ? "천천히 즐기세요" : uiState.difficulty === 'NORMAL' ? "표준 속도" : "매우 빠름!"}</p>
                                 </div>
                                 <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                                    <button onClick={startStageIntro} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center animate-bounce text-sm">
-                                        <Play className="mr-2 inline w-4 h-4" /> 출동하기
-                                    </button>
-                                    <button onClick={handleFileDownload} className="bg-slate-600 px-6 py-2 rounded-full font-bold text-xs flex items-center justify-center text-slate-200 hover:bg-slate-500">
-                                        <Download className="mr-2 inline w-3 h-3" /> 게임 파일 저장
-                                    </button>
+                                    <button onClick={() => { setScore(0); setLives(DIFFICULTY_SETTINGS[difficultyRef.current].lives); setStage(1); setAchievedPolicies([]); updateGameState('STAGE_INTRO'); }} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center animate-bounce text-sm"><Play className="mr-2 inline w-4 h-4" /> 출동하기</button>
+                                    <button onClick={handleFileDownload} className="bg-slate-600 px-6 py-2 rounded-full font-bold text-xs flex items-center justify-center text-slate-200 hover:bg-slate-500"><Download className="mr-2 inline w-3 h-3" /> 게임 파일 저장</button>
                                 </div>
                             </div>
                         )}
 
-                        {gameState === 'STAGE_INTRO' && (
+                        {uiState.gameState === 'STAGE_INTRO' && (
                             <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
                                 <Target className="w-16 h-16 text-blue-400 mb-4 animate-pulse" />
-                                <h2 className="text-2xl font-black text-yellow-400 mb-1">STAGE {stage}</h2>
-                                <h3 className="text-xl font-bold text-white mb-6">{STAGE_TITLES[(stage - 1) % STAGE_TITLES.length]}</h3>
+                                <h2 className="text-2xl font-black text-yellow-400 mb-1">STAGE {uiState.stage}</h2>
+                                <h3 className="text-xl font-bold text-white mb-6">{STAGE_TITLES[(uiState.stage - 1) % STAGE_TITLES.length]}</h3>
                                 <div className="bg-blue-900/50 p-5 rounded-xl w-full max-w-xs mb-8 border border-blue-500/30">
                                     <p className="text-xs text-blue-300 font-bold mb-4 border-b border-blue-500/30 pb-2">이번 스테이지 핵심 공약</p>
                                     <div className="space-y-3 text-left">
-                                        {POLICY_LIST[(stage - 1) % POLICY_LIST.length].map((policy, idx) => (
-                                            <div key={idx} className="flex items-center text-base font-bold">
-                                                <CheckCircle className="w-5 h-5 text-yellow-400 mr-3 flex-shrink-0" />
-                                                {policy.replace(/\n/g, " ")}
-                                            </div>
+                                        {POLICY_LIST[(uiState.stage - 1) % POLICY_LIST.length].map((policy, idx) => (
+                                            <div key={idx} className="flex items-center text-base font-bold"><CheckCircle className="w-5 h-5 text-yellow-400 mr-3 flex-shrink-0" />{policy.replace(/\n/g, " ")}</div>
                                         ))}
                                     </div>
                                 </div>
-                                <button onClick={startGame} className="bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg flex items-center justify-center hover:bg-yellow-400 transition-colors animate-pulse">
-                                    작전 개시 <ArrowRight className="ml-2 w-5 h-5"/>
-                                </button>
+                                <button onClick={startGame} className="bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg flex items-center justify-center hover:bg-yellow-400 transition-colors animate-pulse">작전 개시 <ArrowRight className="ml-2 w-5 h-5"/></button>
                             </div>
                         )}
 
-                        {/* 모달 팝업 추가 */}
                         {resultImage && (
                             <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
-                                <p className="text-white text-lg font-bold mb-4 animate-pulse text-center">
-                                    {/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "이미지를 길게 눌러 저장하세요!" : "이미지를 우클릭하여 저장하세요!"}
-                                </p>
+                                <p className="text-white text-lg font-bold mb-4 animate-pulse text-center">{/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "이미지를 길게 눌러 저장하세요!" : "이미지를 우클릭하여 저장하세요!"}</p>
                                 <img src={resultImage} alt="결과 인증서" className="max-w-full max-h-[70vh] border-4 border-white rounded-lg shadow-lg mb-4" />
-                                <button 
-                                    onClick={() => setResultImage(null)}
-                                    className="bg-slate-600 hover:bg-slate-500 text-white px-8 py-3 rounded-full font-bold transition-colors"
-                                >
-                                    닫기
-                                </button>
+                                <button onClick={() => setResultImage(null)} className="bg-slate-600 hover:bg-slate-500 text-white px-8 py-3 rounded-full font-bold transition-colors">닫기</button>
                             </div>
                         )}
 
-                        {gameState === 'STAGE_CLEAR' && (
+                        {uiState.gameState === 'STAGE_CLEAR' && (
                             <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-center p-6 animate-fade-in" style={{height: `${GAME_HEIGHT}px`}}>
                                 <CheckCircle className="w-16 h-16 text-green-400 mb-4" />
-                                <h2 className="text-2xl font-black text-yellow-400 mb-2">스테이지 {stage} 완수!</h2>
+                                <h2 className="text-2xl font-black text-yellow-400 mb-2">스테이지 {uiState.stage} 완수!</h2>
                                 <p className="text-slate-300 text-sm mb-6">규제와 위기를 훌륭하게 격파하셨습니다.</p>
                                 <div className="bg-white/10 p-4 rounded-xl w-full max-w-xs mb-6 border border-white/20">
                                     <p className="text-xs text-blue-300 font-bold mb-3 border-b border-white/10 pb-2">정책 달성 현황</p>
                                     <div className="space-y-2">
-                                        {POLICY_LIST[(stage - 1) % POLICY_LIST.length].map((policy, idx) => {
+                                        {POLICY_LIST[(uiState.stage - 1) % POLICY_LIST.length].map((policy, idx) => {
                                             const text = policy.replace(/\n/g, " ");
-                                            const isSolved = achievedPolicies.includes(text);
+                                            const isSolved = achievedPoliciesRef.current.includes(text);
                                             return (
                                                 <div key={idx} className="flex justify-between items-center text-sm font-bold">
                                                     <span className={isSolved ? "text-white" : "text-slate-500"}>{text}</span>
@@ -721,32 +748,24 @@
                                         })}
                                     </div>
                                 </div>
-                                <div className="flex gap-2 w-full max-w-xs justify-center mb-4">
-                                    <button onClick={nextStage} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center hover:bg-blue-500 transition-colors text-sm w-full">
-                                        다음 지역 이동 <ArrowRight className="ml-2 w-4 h-4"/>
-                                    </button>
-                                </div>
+                                <div className="flex gap-2 w-full max-w-xs justify-center mb-4"><button onClick={nextStage} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center hover:bg-blue-500 transition-colors text-sm w-full">다음 지역 이동 <ArrowRight className="ml-2 w-4 h-4"/></button></div>
                                 <div className="flex gap-2 w-full max-w-xs justify-center">
-                                    <button onClick={handleSaveImage} className="bg-slate-700 px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-slate-600 text-xs">
-                                        <Camera size={14} className="mr-1"/> 정책달성 자랑하기
-                                    </button>
-                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-yellow-500 text-xs">
-                                        <Share2 size={14} className="mr-1"/> 친구에게 게임공유
-                                    </button>
+                                    <button onClick={handleSaveImage} className="bg-slate-700 px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-slate-600 text-xs"><Camera size={14} className="mr-1"/> 정책달성 자랑하기</button>
+                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-yellow-500 text-xs"><Share2 size={14} className="mr-1"/> 친구에게 게임공유</button>
                                 </div>
                             </div>
                         )}
 
-                        {gameState === 'GAMEOVER' && (
+                        {uiState.gameState === 'GAMEOVER' && (
                             <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
                                 <h1 className="text-3xl font-black text-red-500 mb-2">게임 종료</h1>
                                 <p className="text-slate-400 mb-4">도전이 멈췄지만, 희망은 계속됩니다.</p>
                                 <div className="bg-white/10 p-4 rounded-xl w-full max-w-xs mb-6 border border-white/20">
-                                    <p className="text-xs text-blue-300 font-bold mb-3 border-b border-white/10 pb-2">정책 달성 현황 (Stage {stage})</p>
+                                    <p className="text-xs text-blue-300 font-bold mb-3 border-b border-white/10 pb-2">정책 달성 현황 (Stage {uiState.stage})</p>
                                     <div className="space-y-2">
-                                        {POLICY_LIST[(stage - 1) % POLICY_LIST.length].map((policy, idx) => {
+                                        {POLICY_LIST[(uiState.stage - 1) % POLICY_LIST.length].map((policy, idx) => {
                                             const text = policy.replace(/\n/g, " ");
-                                            const isSolved = achievedPolicies.includes(text);
+                                            const isSolved = achievedPoliciesRef.current.includes(text);
                                             return (
                                                 <div key={idx} className="flex justify-between items-center text-sm font-bold">
                                                     <span className={isSolved ? "text-white" : "text-slate-500"}>{text}</span>
@@ -756,42 +775,27 @@
                                         })}
                                     </div>
                                 </div>
-                                <div className="flex gap-2 w-full justify-center mb-2">
-                                    <button onClick={startStageIntro} className="bg-yellow-500 text-black px-6 py-3 rounded-lg font-bold flex items-center shadow-lg hover:bg-yellow-400 text-sm w-full justify-center">
-                                        <RotateCcw size={16} className="mr-2"/>최병관과 함께 재도전
-                                    </button>
-                                </div>
+                                <div className="flex gap-2 w-full justify-center mb-2"><button onClick={() => { setScore(0); setLives(DIFFICULTY_SETTINGS[difficultyRef.current].lives); setStage(1); setAchievedPolicies([]); updateGameState('STAGE_INTRO'); }} className="bg-yellow-500 text-black px-6 py-3 rounded-lg font-bold flex items-center shadow-lg hover:bg-yellow-400 text-sm w-full justify-center"><RotateCcw size={16} className="mr-2"/>최병관과 함께 재도전</button></div>
                                 <div className="flex gap-2 w-full justify-center">
-                                    <button onClick={handleSaveImage} className="bg-slate-700 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-slate-600 text-xs">
-                                        <Camera size={14} className="mr-1"/> 결과 자랑하기
-                                    </button>
-                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-yellow-500 text-xs">
-                                        <Share2 size={14} className="mr-1"/> 친구에게 공유
-                                    </button>
+                                    <button onClick={handleSaveImage} className="bg-slate-700 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-slate-600 text-xs"><Camera size={14} className="mr-1"/> 결과 자랑하기</button>
+                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-yellow-500 text-xs"><Share2 size={14} className="mr-1"/> 친구에게 공유</button>
                                 </div>
-                                <button onClick={handleFileDownload} className="mt-4 text-xs text-slate-400 underline flex items-center">
-                                    <Download size={12} className="mr-1"/> 게임 파일 저장
-                                </button>
+                                <button onClick={handleFileDownload} className="mt-4 text-xs text-slate-400 underline flex items-center"><Download size={12} className="mr-1"/> 게임 파일 저장</button>
                             </div>
                         )}
                         
-                        {gameState === 'PLAYING' && !ballRef.current.active && (
-                            <div className="absolute left-0 w-full text-center text-white/50 text-sm animate-pulse pointer-events-none" style={{top: `${GAME_HEIGHT/2}px`}}>
-                                터치해서 발사!
-                            </div>
+                        {uiState.gameState === 'PLAYING' && !ballRef.current.active && (
+                            <div className="absolute left-0 w-full text-center text-white/50 text-sm animate-pulse pointer-events-none" style={{top: `${GAME_HEIGHT/2}px`}}>터치해서 발사!</div>
                         )}
                     </div>
-
-                    <div className="mt-4 text-center text-xs text-slate-500">
-                        <p>회색 규제와 빨간 위기를 깨고, 노란 공약을 실현하세요!</p>
-                    </div>
+                    <div className="mt-4 text-center text-xs text-slate-500"><p>회색 규제와 빨간 위기를 깨고, 노란 공약을 실현하세요!</p></div>
                 </div>
             );
         };
 
         // --- App (Main) ---
         const App = () => {
-            const [mode, setMode] = useState('INTRO'); // INTRO | GAME
+            const [mode, setMode] = useState('INTRO');
             return (
                 <React.Fragment>
                     {mode === 'INTRO' && <IntroScreen onStart={() => setMode('GAME')} />}
