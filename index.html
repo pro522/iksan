@@ -4,30 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- [기자님 필독] 카카오톡/SNS 공유 설정 (Open Graph) -->
+    <!-- 오픈 그래프 (카톡 공유시 뜨는 내용) -->
     <meta property="og:title" content="최병관의 규제 격파" />
-    <meta property="og:description" content="잼잼도시익산!최병관이드리는 잼있는 게임." />
+    <meta property="og:description" content="답답한 규제, 최병관과 함께 시원하게 날려버리세요! 익산 대전환 프로젝트." />
     <meta property="og:image" content="./thumbnail.png" />
     <meta property="og:type" content="website" />
 
     <title>최병관의 규제 격파</title>
-    <!-- Tailwind CSS -->
+    
+    <!-- 필수 라이브러리 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel (for JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
     <style>
         body {
             touch-action: none;
+            overscroll-behavior: none;
+            user-select: none;
+            -webkit-user-select: none;
             background-color: #0f172a; /* slate-900 */
             color: white;
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
             margin: 0; padding: 0;
-            overscroll-behavior: none;
-            user-select: none;
-            -webkit-user-select: none;
         }
         .gradient-text {
             background: linear-gradient(to right, #facc15, #f59e0b);
@@ -41,14 +41,26 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, increment, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
         const { useState, useEffect, useRef } = React;
 
-        // ==================================================================================
+        // ----------------------------------------------------------------------------------
+        // [Firebase 설정] - 접속자 카운트용
+        // ----------------------------------------------------------------------------------
+        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = window.__app_id || 'default-app-id';
+
+        // ----------------------------------------------------------------------------------
         // [설정] 이미지 경로
-        // 깃허브 배포 시 candidate.png를 같은 폴더에 넣고 아래 주석을 해제하세요.
-        // const CANDIDATE_IMG_PATH = "./candidate.png";
-        const CANDIDATE_IMG_PATH = "https://placehold.co/100x100/2563eb/white?text=Face";
+        // ----------------------------------------------------------------------------------
+        const CANDIDATE_IMG_PATH = "./candidate.png"; // 실제 배포용
 
         // --- Icons ---
         const Play = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
@@ -61,46 +73,107 @@
         const XCircle = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>);
         const ArrowRight = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>);
         const Target = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>);
+        const User = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>);
+        const Users = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>);
+        const Close = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>);
 
         // ==================================================================================
-        // 1. INTRO SCREEN (소개 화면)
+        // 1. INTRO SCREEN
         // ==================================================================================
         const IntroScreen = ({ onStart }) => {
+            const [imgError, setImgError] = useState(false);
+            const [user, setUser] = useState(null);
+            const [visitorCount, setVisitorCount] = useState(0);
+
+            // Auth & Visitor Count Logic
+            useEffect(() => {
+                const initAuth = async () => {
+                    if (window.__initial_auth_token) {
+                        await signInWithCustomToken(auth, window.__initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                };
+                initAuth();
+
+                const unsubscribeAuth = onAuthStateChanged(auth, setUser);
+                return () => unsubscribeAuth();
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
+
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'visitor_stats', 'global_counter');
+                
+                const initAndListen = async () => {
+                    const unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            setVisitorCount(docSnap.data().count || 0);
+                        } else {
+                             setDoc(docRef, { count: 0 }, { merge: true });
+                        }
+                    }, (error) => {
+                        console.error("Snapshot error:", error);
+                    });
+                    
+                    try {
+                        await setDoc(docRef, { count: increment(1) }, { merge: true });
+                    } catch (e) {
+                        console.error("Increment error:", e);
+                    }
+
+                    return unsubscribeSnapshot;
+                };
+
+                let unsub;
+                initAndListen().then(u => unsub = u);
+                return () => { if(unsub) unsub(); };
+
+            }, [user]);
+
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 max-w-md mx-auto relative overflow-hidden animate-fade-in">
                     
-                    {/* Background Effect */}
+                    {/* Visitor Count Badge */}
+                    <div className="absolute top-4 right-4 bg-slate-800/80 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30 flex items-center shadow-lg z-20">
+                        <Users size={12} className="mr-1"/>
+                        누적 참여: {visitorCount.toLocaleString()}명
+                    </div>
+
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
                         <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500 rounded-full blur-3xl"></div>
                         <div className="absolute bottom-10 right-10 w-40 h-40 bg-yellow-500 rounded-full blur-3xl"></div>
                     </div>
 
-                    {/* Header */}
-                    <div className="text-center z-10 mb-8 animate-fade-in-up">
+                    <div className="text-center z-10 mb-8">
                         <div className="inline-block p-2 bg-blue-900/50 rounded-full border border-blue-500/30 mb-4 shadow-lg shadow-blue-500/20">
                             <span className="text-blue-300 text-xs font-bold px-2">익산 대전환 프로젝트</span>
                         </div>
                         <h1 className="text-4xl font-black mb-2 leading-tight">
                             답답한 규제,<br/>
-                            <span className="gradient-text">최병관</span>이 깹니다!
+                            <span className="gradient-text">행정전문가</span>가 깹니다!
                         </h1>
-                        <p className="text-slate-400 text-sm">
-                            "말뿐인 정치는 그만! 행동으로 보여드립니다."
-                        </p>
+                        <p className="text-slate-400 text-sm">"규제는 아는 사람만이 제대로 깰 수 있습니다."</p>
                     </div>
 
-                    {/* Candidate Profile */}
                     <div className="relative mb-10 group cursor-pointer" onClick={onStart}>
-                        <div className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)] overflow-hidden bg-blue-600 relative z-10 group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                            <img src={CANDIDATE_IMG_PATH} alt="최병관" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div class="text-white font-bold text-center p-4">최병관<br/>후보</div>'; }} />
+                        <div className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)] overflow-hidden bg-blue-600 relative z-10 transition-transform duration-300 hover:scale-105 flex items-center justify-center">
+                            {!imgError ? (
+                                <img 
+                                    src={CANDIDATE_IMG_PATH} 
+                                    alt="최병관" 
+                                    className="w-full h-full object-cover" 
+                                    onError={() => setImgError(true)}
+                                />
+                            ) : (
+                                <User size={64} className="text-white opacity-80" />
+                            )}
                         </div>
-                        {/* Play Button Overlay */}
                         <div className="absolute -bottom-3 -right-3 bg-red-500 text-white p-3 rounded-full shadow-lg z-20 animate-bounce">
-                            <Play className="w-6 h-6 fill-current" />
+                            <Play className="w-6 h-6" />
                         </div>
                     </div>
 
-                    {/* Mission List */}
                     <div className="w-full bg-blue-900/30 p-5 rounded-2xl border border-blue-500/20 mb-8">
                         <h3 className="text-center font-bold text-blue-300 mb-4 flex items-center justify-center">
                             <Zap className="w-4 h-4 mr-2" /> 3대 핵심 미션
@@ -112,12 +185,11 @@
                         </ul>
                     </div>
 
-                    {/* CTA Button */}
                     <button 
                         onClick={onStart}
-                        className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black text-lg py-4 rounded-xl shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center group"
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black text-lg py-4 rounded-xl shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center group animate-pulse"
                     >
-                        <Play className="w-6 h-6 mr-2 fill-current group-hover:scale-110 transition-transform" />
+                        <Play className="w-6 h-6 mr-2 group-hover:scale-110 transition-transform" />
                         지금 바로 출동하기
                     </button>
 
@@ -128,9 +200,9 @@
             );
         };
 
-        // ==================================================================================
-        // 2. GAME SCREEN (규제 격파 게임)
-        // ==================================================================================
+        // ------------------------------------------------------------
+        // 2. GAME SCREEN
+        // ------------------------------------------------------------
         const GameScreen = ({ onBackToIntro }) => {
             const canvasRef = useRef(null);
             const candidateImageRef = useRef(null);
@@ -165,7 +237,6 @@
                 HARD: { label: "어려움", speed: 5, paddleWidth: 60, lives: 2, color: "bg-red-500", text: "text-red-400" }
             };
 
-            // State
             const [gameState, setGameState] = useState('START'); 
             const [score, setScore] = useState(0);
             const [lives, setLives] = useState(3);
@@ -173,6 +244,7 @@
             const [imageLoaded, setImageLoaded] = useState(false);
             const [achievedPolicies, setAchievedPolicies] = useState([]);
             const [difficulty, setDifficulty] = useState('NORMAL');
+            const [resultImage, setResultImage] = useState(null); // 저장된 이미지 URL
 
             const paddleRef = useRef({ x: (WIDTH - 80) / 2, width: 80 });
             const ballRef = useRef({ x: WIDTH / 2, y: GAME_HEIGHT - 30, dx: 3, dy: -3, speedBase: 3, active: false });
@@ -184,6 +256,7 @@
 
             useEffect(() => {
                 const img = new Image();
+                img.crossOrigin = "anonymous";
                 img.src = CANDIDATE_IMG_PATH;
                 img.onload = () => {
                     candidateImageRef.current = img;
@@ -192,7 +265,7 @@
                 img.onerror = () => { setImageLoaded(false); }
             }, []);
 
-            // --- Save Screenshot Helper ---
+            // --- Save Screenshot Helper (Modal Version) ---
             const handleSaveImage = () => {
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = 720;
@@ -201,6 +274,7 @@
                 ctx.scale(2, 2);
 
                 ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, 360, 640);
+                
                 ctx.textAlign = "center";
                 ctx.fillStyle = gameState === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; 
                 ctx.font = "900 32px sans-serif";
@@ -214,7 +288,11 @@
                 // 사진
                 ctx.save(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
                 if (imageLoaded && candidateImageRef.current) {
-                    ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100);
+                    try {
+                         ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100);
+                    } catch(e) {
+                         ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); 
+                    }
                 } else {
                     ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); 
                 }
@@ -263,10 +341,9 @@
                 ctx.font = "900 20px sans-serif"; ctx.fillStyle = "#ffffff";
                 ctx.fillText("익산 대전환, 지금 시작합니다!", 180, footerY + 30);
 
-                const link = document.createElement('a');
-                link.download = `최병관_규제격파_인증서.png`;
-                link.href = tempCanvas.toDataURL('image/png');
-                link.click();
+                // [수정] 모달에 이미지 표시
+                const dataUrl = tempCanvas.toDataURL('image/png');
+                setResultImage(dataUrl);
             };
 
             const handleFileDownload = () => {
@@ -277,22 +354,29 @@
                 document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
             };
 
+            // --- [수정] 공유 기능 (Web Share API) ---
             const handleShareLink = async () => {
                 const shareData = {
                     title: '최병관의 규제 격파',
                     text: `저는 최병관 후보와 함께 규제를 격파하고 ${score}점을 달성했습니다! 당신도 도전해보세요.`,
                     url: window.location.href
                 };
+                
                 if (navigator.share) {
-                    try { await navigator.share(shareData); } catch (err) { console.log('Error sharing:', err); }
+                    try {
+                        await navigator.share(shareData);
+                    } catch (err) {
+                        console.log('Error sharing:', err);
+                    }
                 } else {
+                    // Fallback
                     const dummy = document.createElement('input');
                     document.body.appendChild(dummy);
                     dummy.value = window.location.href;
                     dummy.select();
                     document.execCommand('copy');
                     document.body.removeChild(dummy);
-                    alert("🔗 링크가 복사되었습니다! 카톡방에 공유해주세요.");
+                    alert("🔗 링크가 복사되었습니다! 카톡방에 붙여넣어 공유해주세요.");
                 }
             };
 
@@ -586,6 +670,22 @@
                                 </div>
                                 <button onClick={startGame} className="bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg flex items-center justify-center hover:bg-yellow-400 transition-colors animate-pulse">
                                     작전 개시 <ArrowRight className="ml-2 w-5 h-5"/>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 모달 팝업 추가 */}
+                        {resultImage && (
+                            <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
+                                <p className="text-white text-lg font-bold mb-4 animate-pulse text-center">
+                                    {/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "이미지를 길게 눌러 저장하세요!" : "이미지를 우클릭하여 저장하세요!"}
+                                </p>
+                                <img src={resultImage} alt="결과 인증서" className="max-w-full max-h-[70vh] border-4 border-white rounded-lg shadow-lg mb-4" />
+                                <button 
+                                    onClick={() => setResultImage(null)}
+                                    className="bg-slate-600 hover:bg-slate-500 text-white px-8 py-3 rounded-full font-bold transition-colors"
+                                >
+                                    닫기
                                 </button>
                             </div>
                         )}
