@@ -6,7 +6,7 @@
     
     <!-- 오픈 그래프 -->
     <meta property="og:title" content="최병관의 규제 격파" />
-    <meta property="og:description" content="잼잼도시익산! 최병관이 드리는 잼있는 게임." />
+    <meta property="og:description" content="답답한 규제, 최병관과 함께 시원하게 날려버리세요! 잼잼도시 익산 대전환 프로젝트." />
     <meta property="og:image" content="./thumbnail.png" />
     <meta property="og:type" content="website" />
 
@@ -60,28 +60,23 @@
         // [설정] Firebase 초기화 (안전 모드)
         let db = null;
         let auth = null;
-        let isFirebaseAvailable = false;
         let appId = 'iksan-campaign';
 
-        // Firebase 초기화 시도
         try {
             if (typeof firebase !== 'undefined' && !firebase.apps.length) {
                 const configRaw = window.__firebase_config;
-                // config가 있고 비어있지 않은 경우에만 초기화
-                if (configRaw && configRaw.trim() !== '' && configRaw !== '{}') {
+                if (configRaw) {
                     const config = JSON.parse(configRaw);
                     firebase.initializeApp(config);
                     db = firebase.firestore();
                     auth = firebase.auth();
-                    appId = window.__app_id || 'iksan-campaign';
-                    isFirebaseAvailable = true;
-                    console.log("Firebase initialized successfully.");
+                    appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'iksan-campaign';
                 } else {
-                    console.log("No Firebase config found. Using local simulation mode.");
+                    console.log("Firebase config not found. Local mode.");
                 }
             }
         } catch(e) { 
-            console.log("Firebase init error (using local mode):", e); 
+            console.log("Firebase init skipped:", e); 
         }
 
         // --- Icons ---
@@ -116,33 +111,36 @@
                 };
 
                 const initFirebaseLogic = async () => {
-                    if (!isFirebaseAvailable || !auth || !db) {
+                    if (!db || !auth) {
                         runLocalMode();
                         return;
                     }
 
                     try {
-                        if (window.__initial_auth_token) {
-                            await auth.signInWithCustomToken(window.__initial_auth_token);
-                        } else {
-                            await auth.signInAnonymously();
-                        }
+                        // 인증 (익명)
+                        await auth.signInAnonymously().catch(e => { throw e; });
 
+                        // 경로: artifacts/{appId}/public/data/visitor_stats/global_counter
+                        // 주의: 규칙상 public 읽기/쓰기가 허용되어야 함
                         const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('visitor_stats').doc('global_counter');
 
-                        // 카운트 증가
+                        // 1. 카운트 증가 시도
                         docRef.set({ count: firebase.firestore.FieldValue.increment(1) }, { merge: true })
                             .catch(err => {
-                                console.warn("Increment failed (using local):", err);
-                                // 쓰기 실패 시 로컬 모드로 전환하지 않고, 그냥 리스너만 시도
+                                console.warn("Firebase increment failed (permissions?):", err);
+                                // 여기서 에러가 나면 로컬 모드로 전환하지 않고, 읽기만 시도하거나 로컬로 전환
+                                // 권한 문제라면 읽기도 안 될 가능성 높음 -> 로컬로 전환
+                                runLocalMode();
                             });
 
-                        // 실시간 리스너
+                        // 2. 실시간 리스너
                         unsubscribe = docRef.onSnapshot((snap) => {
-                            if (snap.exists) setVisitorCount(snap.data().count || 0);
+                            if (snap.exists) {
+                                setVisitorCount(snap.data().count || 0);
+                            }
                         }, (error) => {
                             console.warn("Snapshot failed (switching to local):", error);
-                            runLocalMode(); // 읽기 권한 등 실패 시 로컬 모드
+                            runLocalMode();
                         });
 
                     } catch (e) {
@@ -163,7 +161,7 @@
                     {/* Visitor Count Badge */}
                     <div className="absolute top-4 right-4 bg-slate-800/80 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30 flex items-center shadow-lg z-20 animate-pulse">
                         <Users size={12} className="mr-1"/>
-                        참여: {visitorCount.toLocaleString()}명
+                        누적 참여: {visitorCount.toLocaleString()}명
                     </div>
 
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
@@ -183,7 +181,7 @@
                     </div>
 
                     <div className="relative mb-10 group cursor-pointer" onClick={onStart}>
-                        <div className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)] overflow-hidden bg-blue-600 relative z-10 flex items-center justify-center">
+                        <div className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)] overflow-hidden bg-blue-600 relative z-10 transition-transform duration-300 hover:scale-105 flex items-center justify-center">
                             {!imgError ? (
                                 <img 
                                     src={CANDIDATE_IMG_PATH} 
@@ -262,17 +260,13 @@
                 HARD: { label: "어려움", speed: 5, paddleWidth: 60, lives: 2, color: "bg-red-500", text: "text-red-400" }
             };
 
-            // Refs
-            const gameStateRef = useRef('START');
-            const scoreRef = useRef(0);
-            const livesRef = useRef(3);
-            const stageRef = useRef(1);
-            const difficultyRef = useRef('NORMAL');
-            const achievedPoliciesRef = useRef([]);
-
-            // State (UI Update)
-            const [uiState, setUiState] = useState({ gameState: 'START', score: 0, lives: 3, stage: 1, difficulty: 'NORMAL' });
+            const [gameState, setGameState] = useState('START'); 
+            const [score, setScore] = useState(0);
+            const [lives, setLives] = useState(3);
+            const [stage, setStage] = useState(1);
             const [imageLoaded, setImageLoaded] = useState(false);
+            const [achievedPolicies, setAchievedPolicies] = useState([]);
+            const [difficulty, setDifficulty] = useState('NORMAL');
             const [resultImage, setResultImage] = useState(null);
 
             const paddleRef = useRef({ x: (WIDTH - 80) / 2, width: 80 });
@@ -283,76 +277,159 @@
             const floatingTextsRef = useRef([]);
             const requestIdRef = useRef(null);
 
-            const forceUpdate = () => setUiState(prev => ({ ...prev, dummy: Math.random() }));
-            const updateGameState = (s) => { gameStateRef.current = s; setUiState(prev => ({ ...prev, gameState: s })); };
-
             useEffect(() => {
                 const img = new Image();
                 img.crossOrigin = "anonymous";
                 img.src = CANDIDATE_IMG_PATH;
-                img.onload = () => { candidateImageRef.current = img; setImageLoaded(true); };
+                img.onload = () => {
+                    candidateImageRef.current = img;
+                    setImageLoaded(true);
+                };
                 img.onerror = () => { setImageLoaded(false); }
             }, []);
 
+            // --- Save Screenshot Helper ---
             const handleSaveImage = () => {
-                const tempCanvas = document.createElement('canvas'); tempCanvas.width = 720; tempCanvas.height = 1280; const ctx = tempCanvas.getContext('2d'); ctx.scale(2, 2);
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 720;
+                tempCanvas.height = 1280;
+                const ctx = tempCanvas.getContext('2d');
+                ctx.scale(2, 2);
+
                 ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, 360, 640);
-                ctx.textAlign = "center"; ctx.fillStyle = gameStateRef.current === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; ctx.font = "900 32px sans-serif";
-                ctx.fillText(gameStateRef.current === 'STAGE_CLEAR' ? `STAGE ${stageRef.current} 완수!` : "도전 결과", 180, 80);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 24px sans-serif"; ctx.fillText(`${scoreRef.current}점`, 180, 120);
-
-                ctx.save(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
-                if (imageLoaded && candidateImageRef.current) { try { ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100); } catch(e) { ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); } } else { ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); }
-                ctx.restore(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = "#fbbf24"; ctx.stroke();
-
-                const policies = POLICY_LIST[(stageRef.current - 1) % POLICY_LIST.length];
-                let startY = 300;
-                ctx.font = "bold 16px sans-serif"; ctx.fillStyle = "#60a5fa"; ctx.fillText(`[ ${STAGE_TITLES[(stageRef.current-1)%STAGE_TITLES.length]} 미션 ]`, 180, 280); ctx.textAlign = "left";
                 
+                ctx.textAlign = "center";
+                ctx.fillStyle = gameState === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; 
+                ctx.font = "900 32px sans-serif";
+                const title = gameState === 'STAGE_CLEAR' ? `STAGE ${stage} 완수!` : "도전 결과";
+                ctx.fillText(title, 180, 80);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 24px sans-serif";
+                ctx.fillText(`${score}점`, 180, 120);
+
+                // 사진
+                ctx.save(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+                if (imageLoaded && candidateImageRef.current) {
+                    try { ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100); } 
+                    catch(e) { ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); }
+                } else {
+                    ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); 
+                }
+                ctx.restore();
+                ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = "#fbbf24"; ctx.stroke();
+
+                const policies = POLICY_LIST[(stage - 1) % POLICY_LIST.length];
+                let startY = 300;
+                ctx.font = "bold 16px sans-serif";
+                ctx.fillStyle = "#60a5fa";
+                ctx.fillText(`[ ${STAGE_TITLES[(stage-1)%STAGE_TITLES.length]} 미션 ]`, 180, 280);
+
+                ctx.textAlign = "left";
                 policies.forEach((policy, i) => {
                     const text = policy.replace(/\n/g, " ");
-                    const isSolved = achievedPoliciesRef.current.includes(text);
+                    const isSolved = achievedPolicies.includes(text);
                     ctx.fillStyle = "#1e293b";
                     if (ctx.roundRect) ctx.roundRect(40, startY + (i*50), 280, 40, 8); else ctx.fillRect(40, startY + (i*50), 280, 40);
                     ctx.fill();
+
                     ctx.font = "bold 14px sans-serif"; ctx.fillStyle = isSolved ? "#ffffff" : "#64748b";
                     ctx.beginPath(); ctx.arc(60, startY + (i*50) + 20, 10, 0, Math.PI*2);
-                    if(isSolved) { ctx.fillStyle = "#22c55e"; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.moveTo(56, startY + (i*50) + 20); ctx.lineTo(59, startY + (i*50) + 23); ctx.lineTo(64, startY + (i*50) + 17); ctx.stroke(); } else { ctx.strokeStyle = "#64748b"; ctx.stroke(); }
-                    ctx.fillStyle = isSolved ? "#ffffff" : "#64748b"; ctx.fillText(text, 85, startY + (i*50) + 25);
-                    if (isSolved) { ctx.save(); ctx.translate(280, startY + (i*50) + 20); ctx.rotate(-0.2); ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 2; ctx.strokeRect(-30, -12, 60, 24); ctx.fillStyle = "#ef4444"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center"; ctx.fillText("격파완료", 0, 4); ctx.restore(); }
+                    if(isSolved) {
+                        ctx.fillStyle = "#22c55e"; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+                        ctx.moveTo(56, startY + (i*50) + 20); ctx.lineTo(59, startY + (i*50) + 23); ctx.lineTo(64, startY + (i*50) + 17); ctx.stroke();
+                    } else {
+                        ctx.strokeStyle = "#64748b"; ctx.stroke();
+                    }
+
+                    ctx.fillStyle = isSolved ? "#ffffff" : "#64748b";
+                    ctx.fillText(text, 85, startY + (i*50) + 25);
+                    
+                    if (isSolved) {
+                        ctx.save(); ctx.translate(280, startY + (i*50) + 20); ctx.rotate(-0.2);
+                        ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 2; ctx.strokeRect(-30, -12, 60, 24);
+                        ctx.fillStyle = "#ef4444"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
+                        ctx.fillText("격파완료", 0, 4); ctx.restore();
+                    }
                 });
-                const footerY = 550; ctx.textAlign = "center"; ctx.fillStyle = "#3b82f6"; ctx.font = "bold 14px sans-serif"; ctx.fillText("최병관과 함께", 180, footerY); ctx.font = "900 20px sans-serif"; ctx.fillStyle = "#ffffff"; ctx.fillText("익산 대전환, 지금 시작합니다!", 180, footerY + 30);
-                try { setResultImage(tempCanvas.toDataURL('image/png')); } catch(e) { alert("이미지 생성 실패 (보안)"); }
+
+                const footerY = 550;
+                ctx.textAlign = "center"; ctx.fillStyle = "#3b82f6"; ctx.font = "bold 14px sans-serif";
+                ctx.fillText("최병관과 함께", 180, footerY);
+                ctx.font = "900 20px sans-serif"; ctx.fillStyle = "#ffffff";
+                ctx.fillText("익산 대전환, 지금 시작합니다!", 180, footerY + 30);
+
+                try {
+                    const dataUrl = tempCanvas.toDataURL('image/png');
+                    setResultImage(dataUrl);
+                } catch(e) {
+                    alert("이미지 생성 실패 (보안 정책). 화면 캡처를 이용해주세요.");
+                }
+            };
+
+            const handleFileDownload = () => {
+                const htmlContent = document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = '최병관_규제격파.html';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
             };
 
             const handleShareLink = async () => {
-                const shareData = { title: '최병관의 규제 격파', text: `저는 최병관 후보와 함께 규제를 격파하고 ${scoreRef.current}점을 달성했습니다!`, url: window.location.href };
-                if (navigator.share) { try { await navigator.share(shareData); } catch (err) {} } else { const dummy = document.createElement('input'); document.body.appendChild(dummy); dummy.value = window.location.href; dummy.select(); document.execCommand('copy'); document.body.removeChild(dummy); alert("🔗 링크가 복사되었습니다! 카톡방에 공유해주세요."); }
+                const shareData = {
+                    title: '최병관의 규제 격파',
+                    text: `저는 최병관 후보와 함께 규제를 격파하고 ${score}점을 달성했습니다! 당신도 도전해보세요.`,
+                    url: window.location.href
+                };
+                if (navigator.share) {
+                    try { await navigator.share(shareData); } catch (err) { console.log('Error sharing:', err); }
+                } else {
+                    const dummy = document.createElement('input');
+                    document.body.appendChild(dummy);
+                    dummy.value = window.location.href;
+                    dummy.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(dummy);
+                    alert("🔗 링크가 복사되었습니다! 카톡방에 공유해주세요.");
+                }
             };
-            const handleFileDownload = () => { const htmlContent = document.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = '최병관_규제격파.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); };
 
-            // Logic
+            // --- Logic ---
             const initBricks = (currentStage) => {
                 const newBricks = [];
                 const stagePolicies = POLICY_LIST[(currentStage - 1) % POLICY_LIST.length];
                 let policyIndex = 0;
                 const currentRowCount = currentStage === 1 ? 3 : BRICK_ROW_COUNT;
+
                 for (let c = 0; c < BRICK_COL_COUNT; c++) {
                     for (let r = 0; r < currentRowCount; r++) {
                         let type = 1; let hp = 1; let color = "#94a3b8"; let text = "규제";
                         if (currentStage > 1 && r < 2) { type = 2; hp = 2; color = "#ef4444"; text = "위기"; }
+                        
                         const policyRowCondition = currentStage === 1 ? r >= 0 : r > 1;
-                        if (type !== 2 && policyIndex < stagePolicies.length && (policyRowCondition && Math.random() < 0.4)) { type = 3; hp = 1; color = "#eab308"; text = stagePolicies[policyIndex++]; } else if (type === 1) { text = "규제"; }
-                        newBricks.push({ x: (c * (BRICK_WIDTH + BRICK_PADDING)) + BRICK_OFFSET_LEFT, y: (r * (BRICK_HEIGHT + BRICK_PADDING)) + BRICK_OFFSET_TOP, status: 1, type, hp, color, text });
+                        if (type !== 2 && policyIndex < stagePolicies.length && (policyRowCondition && Math.random() < 0.4)) {
+                            type = 3; hp = 1; color = "#eab308"; text = stagePolicies[policyIndex++];
+                        } else if (type === 1) { text = "규제"; }
+
+                        newBricks.push({ 
+                            x: (c * (BRICK_WIDTH + BRICK_PADDING)) + BRICK_OFFSET_LEFT, 
+                            y: (r * (BRICK_HEIGHT + BRICK_PADDING)) + BRICK_OFFSET_TOP, 
+                            status: 1, type, hp, color, text
+                        });
                     }
                 }
                 let brickIdx = 0;
-                while(policyIndex < stagePolicies.length && brickIdx < newBricks.length) { if(newBricks[brickIdx].type === 1) { newBricks[brickIdx].type = 3; newBricks[brickIdx].color = "#eab308"; newBricks[brickIdx].text = stagePolicies[policyIndex++]; } brickIdx++; }
+                while(policyIndex < stagePolicies.length && brickIdx < newBricks.length) {
+                    if(newBricks[brickIdx].type === 1) {
+                        newBricks[brickIdx].type = 3; newBricks[brickIdx].color = "#eab308"; newBricks[brickIdx].text = stagePolicies[policyIndex++];
+                    }
+                    brickIdx++;
+                }
                 bricksRef.current = newBricks;
             };
 
             const update = () => {
-                if (gameStateRef.current !== 'PLAYING') return;
+                if (gameState !== 'PLAYING') return;
                 const currentPaddleWidth = paddleRef.current.width;
                 if (paddleRef.current.x < 0) paddleRef.current.x = 0;
                 if (paddleRef.current.x + currentPaddleWidth > WIDTH) paddleRef.current.x = WIDTH - currentPaddleWidth;
@@ -363,22 +440,20 @@
                     if (ball.x + ball.dx > WIDTH - BALL_RADIUS || ball.x + ball.dx < BALL_RADIUS) ball.dx = -ball.dx;
                     if (ball.y + ball.dy < BALL_RADIUS) ball.dy = -ball.dy;
                     else if (ball.y + ball.dy > GAME_HEIGHT - BALL_RADIUS) {
-                        livesRef.current -= 1;
-                        if (livesRef.current <= 0) updateGameState('GAMEOVER'); else {
-                            // Reset Ball logic inline
-                            const settings = DIFFICULTY_SETTINGS[difficultyRef.current];
-                            let currentSpeed = stageRef.current === 1 ? 2.0 : settings.speed;
-                            const dirX = Math.random() > 0.5 ? currentSpeed : -currentSpeed;
-                            ballRef.current = { x: WIDTH / 2, y: GAME_HEIGHT - 30, dx: dirX, dy: -currentSpeed, speedBase: currentSpeed, active: false };
-                        }
-                        forceUpdate();
+                        setLives(prev => {
+                            const newLives = prev - 1;
+                            if (newLives <= 0) setGameState('GAMEOVER');
+                            else resetBall();
+                            return newLives;
+                        });
                     }
                     const PADDLE_Y = GAME_HEIGHT - PADDLE_HEIGHT - 5;
                     if (ball.y + BALL_RADIUS >= PADDLE_Y && ball.y - BALL_RADIUS <= PADDLE_Y + PADDLE_HEIGHT && ball.x >= paddleRef.current.x && ball.x <= paddleRef.current.x + currentPaddleWidth && ball.dy > 0) {
                         let hitPoint = ball.x - (paddleRef.current.x + currentPaddleWidth / 2);
                         hitPoint = hitPoint / (currentPaddleWidth / 2);
                         let angle = hitPoint * (Math.PI / 3);
-                        let speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy); speed = Math.min(speed * 1.02, 10); 
+                        let speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy);
+                        speed = Math.min(speed * 1.02, 10); 
                         ball.dx = speed * Math.sin(angle); ball.dy = -speed * Math.cos(angle); ball.y = PADDLE_Y - BALL_RADIUS;
                     }
                     let activeBricksCount = 0;
@@ -387,27 +462,31 @@
                             activeBricksCount++;
                             if (ball.x > b.x && ball.x < b.x + BRICK_WIDTH && ball.y > b.y && ball.y < b.y + BRICK_HEIGHT) {
                                 ball.dy = -ball.dy; b.hp -= 1;
-                                for(let i=0; i<8; i++) particlesRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y + BRICK_HEIGHT/2, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 1.0, color: b.color });
+                                createParticles(b.x + BRICK_WIDTH/2, b.y + BRICK_HEIGHT/2, b.color);
                                 if (b.hp <= 0) {
-                                    b.status = 0; scoreRef.current += (b.type === 3 ? 100 : 10);
+                                    b.status = 0;
+                                    setScore(s => s + (b.type === 3 ? 100 : 10)); 
                                     if (b.type === 3) {
-                                        floatingTextsRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y, text: "공약 실현!", color: "#eab308", life: 1.0 });
-                                        const policyText = b.text.replace(/\n/g, " ");
-                                        if(!achievedPoliciesRef.current.includes(policyText)) achievedPoliciesRef.current.push(policyText);
-                                        itemsRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y + BRICK_HEIGHT/2, type: 'BUDGET', active: true });
-                                    } else if (Math.random() < 0.1) { itemsRef.current.push({ x: b.x + BRICK_WIDTH/2, y: b.y + BRICK_HEIGHT/2, type: 'NOTEBOOK', active: true }); }
+                                        createFloatingText(b.x + BRICK_WIDTH/2, b.y, "공약 실현!", "#eab308");
+                                        const cleanText = b.text.replace(/\n/g, " ");
+                                        setAchievedPolicies(prev => { if(!prev.includes(cleanText)) return [...prev, cleanText]; return prev; });
+                                        dropItem(b.x + BRICK_WIDTH/2, b.y + BRICK_HEIGHT/2, 'BUDGET');
+                                    } else if (Math.random() < 0.1) {
+                                        dropItem(b.x + BRICK_WIDTH/2, b.y + BRICK_HEIGHT/2, 'NOTEBOOK');
+                                    }
                                 }
                             }
                         }
                     });
-                    if (activeBricksCount === 0) { ball.active = false; updateGameState('STAGE_CLEAR'); }
+                    if (activeBricksCount === 0) { ball.active = false; setGameState('STAGE_CLEAR'); }
                 }
                 itemsRef.current.forEach(item => {
                     item.y += 2;
                     const PADDLE_Y = GAME_HEIGHT - PADDLE_HEIGHT - 5;
+                    const currentPaddleWidth = paddleRef.current.width;
                     if (item.active && item.y >= PADDLE_Y && item.y <= GAME_HEIGHT && item.x >= paddleRef.current.x && item.x <= paddleRef.current.x + currentPaddleWidth) {
                         item.active = false;
-                        if (item.type === 'NOTEBOOK') scoreRef.current += 100; else if (item.type === 'BUDGET') scoreRef.current += 500;
+                        activatePowerUp(item.type);
                     }
                 });
                 itemsRef.current = itemsRef.current.filter(i => i.active && i.y < GAME_HEIGHT);
@@ -417,161 +496,222 @@
                 particlesRef.current = particlesRef.current.filter(p => p.life > 0);
             };
 
+            const resetBall = () => {
+                const settings = DIFFICULTY_SETTINGS[difficulty];
+                let currentSpeed = stage === 1 ? 2.0 : settings.speed;
+                const dirX = Math.random() > 0.5 ? currentSpeed : -currentSpeed;
+                ballRef.current = { x: WIDTH / 2, y: GAME_HEIGHT - 30, dx: dirX, dy: -currentSpeed, speedBase: currentSpeed, active: false };
+            };
+
+            const nextStage = () => {
+                const next = stage + 1;
+                setStage(next);
+                setGameState('STAGE_INTRO'); 
+            };
+
+            const startStageIntro = () => {
+                setScore(0);
+                setLives(DIFFICULTY_SETTINGS[difficulty].lives);
+                setStage(1);
+                setAchievedPolicies([]); 
+                setGameState('STAGE_INTRO'); 
+            };
+
+            const startGame = () => {
+                const settings = DIFFICULTY_SETTINGS[difficulty];
+                paddleRef.current.width = settings.paddleWidth;
+                initBricks(stage);
+                resetBall();
+                ballRef.current.active = true;
+                setGameState('PLAYING');
+            };
+
+            const dropItem = (x, y, type) => { itemsRef.current.push({ x, y, type, active: true }); };
+            const createFloatingText = (x, y, text, color) => { floatingTextsRef.current.push({ x, y, text, color, life: 1.0 }); };
+            const activatePowerUp = (type) => { if (type === 'NOTEBOOK') setScore(s => s + 100); else if (type === 'BUDGET') setScore(s => s + 500); };
+            const createParticles = (x, y, color) => { for (let i = 0; i < 8; i++) { particlesRef.current.push({ x, y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 1.0, color }); } };
+
             const render = () => {
-                const canvas = canvasRef.current; if (!canvas) return;
+                const canvas = canvasRef.current;
+                if (!canvas) return;
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
                 ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, WIDTH, GAME_HEIGHT);
-                const grad = ctx.createLinearGradient(0, GAME_HEIGHT, 0, HEIGHT); grad.addColorStop(0, "#1e3a8a"); grad.addColorStop(1, "#172554");
+                const grad = ctx.createLinearGradient(0, GAME_HEIGHT, 0, HEIGHT);
+                grad.addColorStop(0, "#1e3a8a"); grad.addColorStop(1, "#172554");
                 ctx.fillStyle = grad; ctx.fillRect(0, GAME_HEIGHT, WIDTH, CONTROL_HEIGHT);
                 ctx.beginPath(); ctx.moveTo(0, GAME_HEIGHT); ctx.lineTo(WIDTH, GAME_HEIGHT); ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = "#bfdbfe"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center"; ctx.fillText("이곳을 터치해서 좌우로 움직이세요", WIDTH/2, GAME_HEIGHT + 35);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 18px sans-serif"; ctx.fillText("최병관과 함께 익산 발전하기", WIDTH/2, GAME_HEIGHT + 65);
+                ctx.fillStyle = "#bfdbfe"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
+                ctx.fillText("이곳을 터치해서 좌우로 움직이세요", WIDTH/2, GAME_HEIGHT + 35);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 18px sans-serif";
+                ctx.fillText("최병관과 함께 익산 발전하기", WIDTH/2, GAME_HEIGHT + 65);
 
-                if (gameStateRef.current === 'PLAYING') {
+                if (gameState === 'PLAYING') {
                     ctx.fillStyle = "#fff"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
-                    const stageTitle = STAGE_TITLES[(stageRef.current - 1) % STAGE_TITLES.length];
-                    ctx.fillText(`STAGE ${stageRef.current}: ${stageTitle}`, WIDTH/2, BRICK_OFFSET_TOP - 20);
+                    const stageTitle = STAGE_TITLES[(stage - 1) % STAGE_TITLES.length];
+                    ctx.fillText(`STAGE ${stage}: ${stageTitle}`, WIDTH/2, BRICK_OFFSET_TOP - 20);
                 }
+
                 bricksRef.current.forEach(b => {
                     if (b.status === 1) {
-                        ctx.beginPath(); ctx.rect(b.x, b.y, BRICK_WIDTH, BRICK_HEIGHT); ctx.fillStyle = b.color; ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.stroke(); ctx.closePath();
-                        ctx.fillStyle = b.type === 2 ? "#fff" : "#1e293b"; ctx.font = b.type === 3 ? "bold 11px sans-serif" : "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                        const lines = b.text.split('\n'); const lineHeight = 12; const startY = b.y + BRICK_HEIGHT/2 - ((lines.length - 1) * lineHeight) / 2;
+                        ctx.beginPath(); ctx.rect(b.x, b.y, BRICK_WIDTH, BRICK_HEIGHT);
+                        ctx.fillStyle = b.color; ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.stroke(); ctx.closePath();
+                        ctx.fillStyle = b.type === 2 ? "#fff" : "#1e293b"; ctx.font = b.type === 3 ? "bold 11px sans-serif" : "10px sans-serif";
+                        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                        const lines = b.text.split('\n');
+                        const lineHeight = 12;
+                        const startY = b.y + BRICK_HEIGHT/2 - ((lines.length - 1) * lineHeight) / 2;
                         lines.forEach((line, i) => { ctx.fillText(line, b.x + BRICK_WIDTH/2, startY + (i * lineHeight)); });
                     }
                 });
+
                 const PADDLE_Y = GAME_HEIGHT - PADDLE_HEIGHT - 5;
-                if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(paddleRef.current.x, PADDLE_Y, paddleRef.current.width, PADDLE_HEIGHT, 5); ctx.fillStyle = "#2563eb"; ctx.fill(); ctx.closePath(); } 
-                else { ctx.fillStyle = "#2563eb"; ctx.fillRect(paddleRef.current.x, PADDLE_Y, paddleRef.current.width, PADDLE_HEIGHT); }
+                const currentPaddleWidth = paddleRef.current.width;
+                if (ctx.roundRect) {
+                    ctx.beginPath(); ctx.roundRect(paddleRef.current.x, PADDLE_Y, currentPaddleWidth, PADDLE_HEIGHT, 5); ctx.fillStyle = "#2563eb"; ctx.fill(); ctx.closePath();
+                } else {
+                     ctx.fillStyle = "#2563eb"; ctx.fillRect(paddleRef.current.x, PADDLE_Y, currentPaddleWidth, PADDLE_HEIGHT);
+                }
 
                 if (candidateImageRef.current && imageLoaded) {
-                    const FACE_SIZE = 30; const FACE_X = paddleRef.current.x + (paddleRef.current.width - FACE_SIZE) / 2; const FACE_Y = PADDLE_Y - FACE_SIZE + 5; 
+                    const FACE_SIZE = 30; const FACE_X = paddleRef.current.x + (currentPaddleWidth - FACE_SIZE) / 2; const FACE_Y = PADDLE_Y - FACE_SIZE + 5; 
                     ctx.save(); ctx.beginPath(); ctx.arc(FACE_X + FACE_SIZE/2, FACE_Y + FACE_SIZE/2, FACE_SIZE/2, 0, Math.PI * 2); ctx.closePath(); ctx.clip(); 
                     ctx.drawImage(candidateImageRef.current, FACE_X, FACE_Y, FACE_SIZE, FACE_SIZE); ctx.restore();
                     ctx.beginPath(); ctx.arc(FACE_X + FACE_SIZE/2, FACE_Y + FACE_SIZE/2, FACE_SIZE/2, 0, Math.PI * 2); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
                 } else {
-                    ctx.fillStyle = "#fff"; ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("최병관", paddleRef.current.x + paddleRef.current.width/2, PADDLE_Y + 11);
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("최병관", paddleRef.current.x + currentPaddleWidth/2, PADDLE_Y + 11);
                 }
+
                 const ball = ballRef.current;
-                if (gameStateRef.current !== 'STAGE_CLEAR' && gameStateRef.current !== 'STAGE_INTRO') {
+                if (gameState !== 'STAGE_CLEAR' && gameState !== 'STAGE_INTRO') {
                     ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI*2); ctx.fillStyle = "#fbbf24"; ctx.fill(); ctx.closePath();
                 }
-                itemsRef.current.forEach(item => { ctx.beginPath(); ctx.arc(item.x, item.y, 10, 0, Math.PI*2); ctx.fillStyle = item.type === 'NOTEBOOK' ? "#3b82f6" : "#eab308"; ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = "9px sans-serif"; ctx.fillText(item.type === 'NOTEBOOK' ? "수첩" : "예산", item.x, item.y + 3); });
+
+                itemsRef.current.forEach(item => {
+                    ctx.beginPath(); ctx.arc(item.x, item.y, 10, 0, Math.PI*2); ctx.fillStyle = item.type === 'NOTEBOOK' ? "#3b82f6" : "#eab308"; ctx.fill();
+                    ctx.fillStyle = "#fff"; ctx.font = "9px sans-serif"; ctx.fillText(item.type === 'NOTEBOOK' ? "수첩" : "예산", item.x, item.y + 3);
+                });
                 particlesRef.current.forEach(p => { ctx.globalAlpha = p.life; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1.0; });
                 floatingTextsRef.current.forEach(t => { ctx.globalAlpha = t.life; ctx.fillStyle = t.color; ctx.font = "bold 16px sans-serif"; ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); ctx.globalAlpha = 1.0; });
             };
 
             const gameLoop = () => { update(); render(); requestIdRef.current = requestAnimationFrame(gameLoop); };
-            useEffect(() => { requestIdRef.current = requestAnimationFrame(gameLoop); return () => cancelAnimationFrame(requestIdRef.current); }, []);
+            useEffect(() => { if (gameState === 'PLAYING') requestIdRef.current = requestAnimationFrame(gameLoop); return () => cancelAnimationFrame(requestIdRef.current); }, [gameState]);
 
             const handleTouchMove = (e) => {
-                if (gameStateRef.current !== 'PLAYING') return;
+                if (gameState !== 'PLAYING') return;
                 const rect = canvasRef.current.getBoundingClientRect();
                 const touchX = e.touches[0].clientX - rect.left;
                 paddleRef.current.x = touchX - paddleRef.current.width / 2;
             };
             const handleMouseMove = (e) => {
-                if (gameStateRef.current !== 'PLAYING') return;
+                if (gameState !== 'PLAYING') return;
                 const rect = canvasRef.current.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 paddleRef.current.x = mouseX - paddleRef.current.width / 2;
             };
-            const launchBall = () => { if (gameStateRef.current === 'PLAYING' && !ballRef.current.active) ballRef.current.active = true; };
 
-            const startStageIntro = () => {
-                scoreRef.current = 0;
-                livesRef.current = DIFFICULTY_SETTINGS[difficultyRef.current].lives;
-                stageRef.current = 1;
-                achievedPoliciesRef.current = [];
-                updateGameState('STAGE_INTRO');
-            };
-            const startGame = () => {
-                const settings = DIFFICULTY_SETTINGS[difficultyRef.current];
-                paddleRef.current.width = settings.paddleWidth;
-                initBricks(stageRef.current);
-                // Reset Ball
-                let currentSpeed = stageRef.current === 1 ? 2.0 : settings.speed;
-                const dirX = Math.random() > 0.5 ? currentSpeed : -currentSpeed;
-                ballRef.current = { x: WIDTH / 2, y: GAME_HEIGHT - 30, dx: dirX, dy: -currentSpeed, speedBase: currentSpeed, active: false };
-                ballRef.current.active = true;
-                updateGameState('PLAYING');
-            };
-            const nextStage = () => { stageRef.current += 1; updateGameState('STAGE_INTRO'); };
-            const updateDifficulty = (newDiff) => { difficultyRef.current = newDiff; setUiState(prev => ({ ...prev, difficulty: newDiff })); };
+            const launchBall = () => { if (gameState === 'PLAYING' && !ballRef.current.active) ballRef.current.active = true; };
 
             return (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 font-sans p-4 touch-none select-none">
                     <div className="w-full max-w-[360px] flex justify-between items-center mb-2 text-white">
                         <div className="flex gap-4">
-                            <div><p className="text-[10px] text-slate-400">SCORE</p><p className="text-xl font-mono font-bold text-yellow-400">{uiState.score}</p></div>
-                            <div><p className="text-[10px] text-slate-400">STAGE</p><p className="text-xl font-mono font-bold">{uiState.stage}</p></div>
+                            <div><p className="text-[10px] text-slate-400">SCORE</p><p className="text-xl font-mono font-bold text-yellow-400">{score}</p></div>
+                            <div><p className="text-[10px] text-slate-400">STAGE</p><p className="text-xl font-mono font-bold">{stage}</p></div>
                         </div>
-                        <div className="flex gap-1">{[...Array(uiState.lives)].map((_, i) => (<div key={i} className="w-4 h-4 bg-red-500 rounded-full"></div>))}</div>
+                        <div className="flex gap-1">
+                            {[...Array(lives)].map((_, i) => (<div key={i} className="w-4 h-4 bg-red-500 rounded-full"></div>))}
+                        </div>
                     </div>
 
                     <div className="relative bg-slate-800 rounded-xl overflow-hidden shadow-2xl border-4 border-slate-700">
                         <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="cursor-none touch-none" onTouchMove={handleTouchMove} onMouseMove={handleMouseMove} onClick={launchBall}/>
 
-                        {uiState.gameState === 'START' && (
+                        {gameState === 'START' && (
                             <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
                                 <Zap className="w-20 h-20 text-yellow-400 mb-4 animate-pulse" />
                                 <h1 className="text-2xl font-black mb-1">규제 격파</h1>
                                 <p className="text-blue-300 font-bold mb-4 text-sm">"최병관의 정책으로 익산을 뚫어라!"</p>
+                                
                                 <div className="bg-white/10 p-3 rounded-lg w-full mb-4">
                                     <p className="text-xs text-slate-300 mb-2 font-bold">난이도 선택</p>
                                     <div className="flex gap-2 justify-center">
                                         {Object.keys(DIFFICULTY_SETTINGS).map((key) => (
-                                            <button key={key} onClick={() => updateDifficulty(key)} className={`flex-1 py-2 rounded font-bold text-xs border-2 transition-all ${uiState.difficulty === key ? `${DIFFICULTY_SETTINGS[key].color} border-white text-white scale-105` : 'bg-slate-700 border-transparent text-slate-400'}`}>
+                                            <button 
+                                                key={key}
+                                                onClick={() => setDifficulty(key)}
+                                                className={`flex-1 py-2 rounded font-bold text-xs border-2 transition-all ${difficulty === key ? `${DIFFICULTY_SETTINGS[key].color} border-white text-white scale-105` : 'bg-slate-700 border-transparent text-slate-400'}`}
+                                            >
                                                 {DIFFICULTY_SETTINGS[key].label}
                                             </button>
                                         ))}
                                     </div>
-                                    <p className={`text-[10px] mt-2 ${DIFFICULTY_SETTINGS[uiState.difficulty].text}`}>* {uiState.difficulty === 'EASY' ? "천천히 즐기세요" : uiState.difficulty === 'NORMAL' ? "표준 속도" : "매우 빠름!"}</p>
+                                    <p className={`text-[10px] mt-2 ${DIFFICULTY_SETTINGS[difficulty].text}`}>
+                                        * {difficulty === 'EASY' ? "천천히 즐기세요 (막대 김)" : difficulty === 'NORMAL' ? "표준 속도입니다" : "매우 빠릅니다! (도전)"}
+                                    </p>
                                 </div>
                                 <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                                    <button onClick={startStageIntro} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center animate-bounce text-sm"><Play className="mr-2 inline w-4 h-4" /> 출동하기</button>
-                                    <button onClick={handleFileDownload} className="bg-slate-600 px-6 py-2 rounded-full font-bold text-xs flex items-center justify-center text-slate-200 hover:bg-slate-500"><Download className="mr-2 inline w-3 h-3" /> 게임 파일 저장</button>
+                                    <button onClick={startStageIntro} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center animate-bounce text-sm">
+                                        <Play className="mr-2 inline w-4 h-4" /> 출동하기
+                                    </button>
+                                    <button onClick={handleFileDownload} className="bg-slate-600 px-6 py-2 rounded-full font-bold text-xs flex items-center justify-center text-slate-200 hover:bg-slate-500">
+                                        <Download className="mr-2 inline w-3 h-3" /> 게임 파일 저장
+                                    </button>
                                 </div>
                             </div>
                         )}
 
-                        {uiState.gameState === 'STAGE_INTRO' && (
+                        {gameState === 'STAGE_INTRO' && (
                             <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
                                 <Target className="w-16 h-16 text-blue-400 mb-4 animate-pulse" />
-                                <h2 className="text-2xl font-black text-yellow-400 mb-1">STAGE {uiState.stage}</h2>
-                                <h3 className="text-xl font-bold text-white mb-6">{STAGE_TITLES[(uiState.stage - 1) % STAGE_TITLES.length]}</h3>
+                                <h2 className="text-2xl font-black text-yellow-400 mb-1">STAGE {stage}</h2>
+                                <h3 className="text-xl font-bold text-white mb-6">{STAGE_TITLES[(stage - 1) % STAGE_TITLES.length]}</h3>
                                 <div className="bg-blue-900/50 p-5 rounded-xl w-full max-w-xs mb-8 border border-blue-500/30">
                                     <p className="text-xs text-blue-300 font-bold mb-4 border-b border-blue-500/30 pb-2">이번 스테이지 핵심 공약</p>
                                     <div className="space-y-3 text-left">
-                                        {POLICY_LIST[(uiState.stage - 1) % POLICY_LIST.length].map((policy, idx) => (
-                                            <div key={idx} className="flex items-center text-base font-bold"><CheckCircle className="w-5 h-5 text-yellow-400 mr-3 flex-shrink-0" />{policy.replace(/\n/g, " ")}</div>
+                                        {POLICY_LIST[(stage - 1) % POLICY_LIST.length].map((policy, idx) => (
+                                            <div key={idx} className="flex items-center text-base font-bold">
+                                                <CheckCircle className="w-5 h-5 text-yellow-400 mr-3 flex-shrink-0" />
+                                                {policy.replace(/\n/g, " ")}
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
-                                <button onClick={startGame} className="bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg flex items-center justify-center hover:bg-yellow-400 transition-colors animate-pulse">작전 개시 <ArrowRight className="ml-2 w-5 h-5"/></button>
+                                <button onClick={startGame} className="bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg flex items-center justify-center hover:bg-yellow-400 transition-colors animate-pulse">
+                                    작전 개시 <ArrowRight className="ml-2 w-5 h-5"/>
+                                </button>
                             </div>
                         )}
 
+                        {/* 모달 팝업 추가 */}
                         {resultImage && (
                             <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
-                                <p className="text-white text-lg font-bold mb-4 animate-pulse text-center">{/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "이미지를 길게 눌러 저장하세요!" : "이미지를 우클릭하여 저장하세요!"}</p>
+                                <p className="text-white text-lg font-bold mb-4 animate-pulse text-center">
+                                    {/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "이미지를 길게 눌러 저장하세요!" : "이미지를 우클릭하여 저장하세요!"}
+                                </p>
                                 <img src={resultImage} alt="결과 인증서" className="max-w-full max-h-[70vh] border-4 border-white rounded-lg shadow-lg mb-4" />
-                                <button onClick={() => setResultImage(null)} className="bg-slate-600 hover:bg-slate-500 text-white px-8 py-3 rounded-full font-bold transition-colors">닫기</button>
+                                <button 
+                                    onClick={() => setResultImage(null)}
+                                    className="bg-slate-600 hover:bg-slate-500 text-white px-8 py-3 rounded-full font-bold transition-colors"
+                                >
+                                    닫기
+                                </button>
                             </div>
                         )}
 
-                        {uiState.gameState === 'STAGE_CLEAR' && (
+                        {gameState === 'STAGE_CLEAR' && (
                             <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-center p-6 animate-fade-in" style={{height: `${GAME_HEIGHT}px`}}>
                                 <CheckCircle className="w-16 h-16 text-green-400 mb-4" />
-                                <h2 className="text-2xl font-black text-yellow-400 mb-2">스테이지 {uiState.stage} 완수!</h2>
+                                <h2 className="text-2xl font-black text-yellow-400 mb-2">스테이지 {stage} 완수!</h2>
                                 <p className="text-slate-300 text-sm mb-6">규제와 위기를 훌륭하게 격파하셨습니다.</p>
                                 <div className="bg-white/10 p-4 rounded-xl w-full max-w-xs mb-6 border border-white/20">
                                     <p className="text-xs text-blue-300 font-bold mb-3 border-b border-white/10 pb-2">정책 달성 현황</p>
                                     <div className="space-y-2">
-                                        {POLICY_LIST[(uiState.stage - 1) % POLICY_LIST.length].map((policy, idx) => {
+                                        {POLICY_LIST[(stage - 1) % POLICY_LIST.length].map((policy, idx) => {
                                             const text = policy.replace(/\n/g, " ");
-                                            const isSolved = achievedPoliciesRef.current.includes(text);
+                                            const isSolved = achievedPolicies.includes(text);
                                             return (
                                                 <div key={idx} className="flex justify-between items-center text-sm font-bold">
                                                     <span className={isSolved ? "text-white" : "text-slate-500"}>{text}</span>
@@ -581,24 +721,32 @@
                                         })}
                                     </div>
                                 </div>
-                                <div className="flex gap-2 w-full max-w-xs justify-center mb-4"><button onClick={nextStage} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center hover:bg-blue-500 transition-colors text-sm w-full">다음 지역 이동 <ArrowRight className="ml-2 w-4 h-4"/></button></div>
+                                <div className="flex gap-2 w-full max-w-xs justify-center mb-4">
+                                    <button onClick={nextStage} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center hover:bg-blue-500 transition-colors text-sm w-full">
+                                        다음 지역 이동 <ArrowRight className="ml-2 w-4 h-4"/>
+                                    </button>
+                                </div>
                                 <div className="flex gap-2 w-full max-w-xs justify-center">
-                                    <button onClick={handleSaveImage} className="bg-slate-700 px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-slate-600 text-xs"><Camera size={14} className="mr-1"/> 정책달성 자랑하기</button>
-                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-yellow-500 text-xs"><Share2 size={14} className="mr-1"/> 친구에게 공유</button>
+                                    <button onClick={handleSaveImage} className="bg-slate-700 px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-slate-600 text-xs">
+                                        <Camera size={14} className="mr-1"/> 정책달성 자랑하기
+                                    </button>
+                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-full font-bold shadow-lg flex-1 flex items-center justify-center hover:bg-yellow-500 text-xs">
+                                        <Share2 size={14} className="mr-1"/> 친구에게 게임공유
+                                    </button>
                                 </div>
                             </div>
                         )}
 
-                        {uiState.gameState === 'GAMEOVER' && (
+                        {gameState === 'GAMEOVER' && (
                             <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
                                 <h1 className="text-3xl font-black text-red-500 mb-2">게임 종료</h1>
                                 <p className="text-slate-400 mb-4">도전이 멈췄지만, 희망은 계속됩니다.</p>
                                 <div className="bg-white/10 p-4 rounded-xl w-full max-w-xs mb-6 border border-white/20">
-                                    <p className="text-xs text-blue-300 font-bold mb-3 border-b border-white/10 pb-2">정책 달성 현황 (Stage {uiState.stage})</p>
+                                    <p className="text-xs text-blue-300 font-bold mb-3 border-b border-white/10 pb-2">정책 달성 현황 (Stage {stage})</p>
                                     <div className="space-y-2">
-                                        {POLICY_LIST[(uiState.stage - 1) % POLICY_LIST.length].map((policy, idx) => {
+                                        {POLICY_LIST[(stage - 1) % POLICY_LIST.length].map((policy, idx) => {
                                             const text = policy.replace(/\n/g, " ");
-                                            const isSolved = achievedPoliciesRef.current.includes(text);
+                                            const isSolved = achievedPolicies.includes(text);
                                             return (
                                                 <div key={idx} className="flex justify-between items-center text-sm font-bold">
                                                     <span className={isSolved ? "text-white" : "text-slate-500"}>{text}</span>
@@ -608,27 +756,42 @@
                                         })}
                                     </div>
                                 </div>
-                                <div className="flex gap-2 w-full justify-center mb-2"><button onClick={() => { setScore(0); setLives(DIFFICULTY_SETTINGS[difficultyRef.current].lives); setStage(1); setAchievedPolicies([]); updateGameState('STAGE_INTRO'); }} className="bg-yellow-500 text-black px-6 py-3 rounded-lg font-bold flex items-center shadow-lg hover:bg-yellow-400 text-sm w-full justify-center"><RotateCcw size={16} className="mr-2"/>최병관과 함께 재도전</button></div>
-                                <div className="flex gap-2 w-full justify-center">
-                                    <button onClick={handleSaveImage} className="bg-slate-700 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-slate-600 text-xs"><Camera size={14} className="mr-1"/> 결과 자랑하기</button>
-                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-yellow-500 text-xs"><Share2 size={14} className="mr-1"/> 친구에게 공유</button>
+                                <div className="flex gap-2 w-full justify-center mb-2">
+                                    <button onClick={startStageIntro} className="bg-yellow-500 text-black px-6 py-3 rounded-lg font-bold flex items-center shadow-lg hover:bg-yellow-400 text-sm w-full justify-center">
+                                        <RotateCcw size={16} className="mr-2"/>최병관과 함께 재도전
+                                    </button>
                                 </div>
-                                <button onClick={handleFileDownload} className="mt-4 text-xs text-slate-400 underline flex items-center"><Download size={12} className="mr-1"/> 게임 파일 저장</button>
+                                <div className="flex gap-2 w-full justify-center">
+                                    <button onClick={handleSaveImage} className="bg-slate-700 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-slate-600 text-xs">
+                                        <Camera size={14} className="mr-1"/> 결과 자랑하기
+                                    </button>
+                                    <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-yellow-500 text-xs">
+                                        <Share2 size={14} className="mr-1"/> 친구에게 공유
+                                    </button>
+                                </div>
+                                <button onClick={handleFileDownload} className="mt-4 text-xs text-slate-400 underline flex items-center">
+                                    <Download size={12} className="mr-1"/> 게임 파일 저장
+                                </button>
                             </div>
                         )}
                         
-                        {uiState.gameState === 'PLAYING' && !ballRef.current.active && (
-                            <div className="absolute left-0 w-full text-center text-white/50 text-sm animate-pulse pointer-events-none" style={{top: `${GAME_HEIGHT/2}px`}}>터치해서 발사!</div>
+                        {gameState === 'PLAYING' && !ballRef.current.active && (
+                            <div className="absolute left-0 w-full text-center text-white/50 text-sm animate-pulse pointer-events-none" style={{top: `${GAME_HEIGHT/2}px`}}>
+                                터치해서 발사!
+                            </div>
                         )}
                     </div>
-                    <div className="mt-4 text-center text-xs text-slate-500"><p>회색 규제와 빨간 위기를 깨고, 노란 공약을 실현하세요!</p></div>
+
+                    <div className="mt-4 text-center text-xs text-slate-500">
+                        <p>회색 규제와 빨간 위기를 깨고, 노란 공약을 실현하세요!</p>
+                    </div>
                 </div>
             );
         };
 
         // --- App (Main) ---
         const App = () => {
-            const [mode, setMode] = useState('INTRO');
+            const [mode, setMode] = useState('INTRO'); // INTRO | GAME
             return (
                 <React.Fragment>
                     {mode === 'INTRO' && <IntroScreen onStart={() => setMode('GAME')} />}
