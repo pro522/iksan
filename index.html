@@ -300,8 +300,8 @@
 
             useEffect(() => {
                 const img = new Image();
-                img.crossOrigin = "anonymous";
-                // onload를 src보다 먼저 정의
+                // [수정] 동일 도메인 이미지 CORS 문제 해결을 위해 crossOrigin 속성 제거
+                // 깃허브 페이지에서 로컬 이미지 사용 시 이게 더 안정적임
                 img.onload = () => {
                     candidateImageRef.current = img;
                     setImageLoaded(true);
@@ -323,6 +323,7 @@
                 ctx.textAlign = "center";
                 ctx.fillStyle = gameStateRef.current === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; 
                 ctx.font = "900 32px sans-serif";
+                // [여기입니다!] 인증서 이미지에 '도전 결과' 텍스트 그리는 부분
                 const title = gameStateRef.current === 'STAGE_CLEAR' ? `STAGE ${stageRef.current} 완수!` : "도전 결과";
                 ctx.fillText(title, 180, 80);
 
@@ -331,14 +332,39 @@
                 ctx.fillText(`${scoreRef.current}점`, 180, 120);
 
                 // 사진 (인증서용)
-                ctx.save(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+                ctx.save();
+                ctx.beginPath(); 
+                ctx.arc(180, 200, 50, 0, Math.PI * 2); 
+                ctx.closePath(); 
+                ctx.clip();
+                
+                // [수정] 이미지 그리기 로직 강화
                 if (imageLoaded && candidateImageRef.current) {
-                    try { ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100); } 
-                    catch(e) { ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); }
+                    try {
+                        ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100);
+                    } catch(e) {
+                        // 그리기 실패 시 회색 박스
+                        console.error("Canvas drawImage error:", e);
+                        ctx.fillStyle = "#334155"; 
+                        ctx.fillRect(130, 150, 100, 100);
+                    }
                 } else {
-                    ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); 
+                    // 이미지 없을 때
+                    ctx.fillStyle = "#334155"; 
+                    ctx.fillRect(130, 150, 100, 100);
+                    
+                    // 기본 아이콘 그리기 (사람 모양)
+                    ctx.fillStyle = "#94a3b8";
+                    ctx.beginPath();
+                    ctx.arc(180, 190, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(180, 230, 30, Math.PI, 0);
+                    ctx.fill();
                 }
                 ctx.restore();
+
+                // 테두리
                 ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = "#fbbf24"; ctx.stroke();
 
                 const policies = POLICY_LIST[(stageRef.current - 1) % POLICY_LIST.length];
@@ -587,7 +613,6 @@
                 if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(paddleRef.current.x, PADDLE_Y, paddleRef.current.width, PADDLE_HEIGHT, 5); ctx.fillStyle = "#2563eb"; ctx.fill(); ctx.closePath(); } 
                 else { ctx.fillStyle = "#2563eb"; ctx.fillRect(paddleRef.current.x, PADDLE_Y, paddleRef.current.width, PADDLE_HEIGHT); }
 
-                // [수정] 모든 화면에서 패들 위에 후보 사진 표시
                 if (candidateImageRef.current && imageLoaded) {
                     const FACE_SIZE = 30; const FACE_X = paddleRef.current.x + (paddleRef.current.width - FACE_SIZE) / 2; const FACE_Y = PADDLE_Y - FACE_SIZE + 5; 
                     ctx.save(); ctx.beginPath(); ctx.arc(FACE_X + FACE_SIZE/2, FACE_Y + FACE_SIZE/2, FACE_SIZE/2, 0, Math.PI * 2); ctx.closePath(); ctx.clip(); 
