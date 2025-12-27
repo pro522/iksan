@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- 오픈 그래프 (카톡 공유시 뜨는 내용) -->
+    <meta property="og:title" content="최병관의 규제 격파" />
+    <meta property="og:description" content="답답한 규제, 최병관과 함께 시원하게 날려버리세요! 익산 대전환 프로젝트." />
+    <meta property="og:image" content="./candidate.png" />
+    
     <title>최병관의 규제 격파</title>
     
-    <!-- 필수 라이브러리 -->
+    <!-- 라이브러리 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -20,8 +26,7 @@
             background-color: #0f172a;
             color: white;
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
         }
         .gradient-text {
             background: linear-gradient(to right, #facc15, #f59e0b);
@@ -39,8 +44,7 @@
         const { useState, useEffect, useRef } = React;
 
         // ==================================================================================
-        // [설정] 이미지 경로
-        // 깃허브에 candidate.png 파일을 같이 올리면 자동으로 후보 얼굴이 적용됩니다.
+        // [설정] 이미지 경로 (깃허브에 올린 파일명과 일치해야 함)
         // ==================================================================================
         const CANDIDATE_IMG_PATH = "./candidate.png"; 
 
@@ -52,13 +56,10 @@
         const Download = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>);
         const Camera = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>);
         const CheckCircle = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>);
-        const XCircle = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>);
         const ArrowRight = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>);
         const Target = ({ className, size }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>);
 
-        // ==================================================================================
         // 1. INTRO SCREEN
-        // ==================================================================================
         const IntroScreen = ({ onStart }) => {
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 max-w-md mx-auto relative overflow-hidden animate-fade-in">
@@ -107,9 +108,7 @@
             );
         };
 
-        // ==================================================================================
         // 2. GAME SCREEN
-        // ==================================================================================
         const GameScreen = ({ onBackToIntro }) => {
             const canvasRef = useRef(null);
             const candidateImageRef = useRef(null);
@@ -168,51 +167,41 @@
                 img.onerror = () => { setImageLoaded(false); }
             }, []);
 
-            // --- Save Screenshot Helper (High Quality Poster Style) ---
+            // --- [수정] 인증서 저장 로직 (3개 달성 완벽 반영) ---
             const handleSaveImage = () => {
                 const tempCanvas = document.createElement('canvas');
-                // 고해상도 저장을 위해 2배 크기로 생성
                 tempCanvas.width = 720;
                 tempCanvas.height = 1280;
                 const ctx = tempCanvas.getContext('2d');
-                
-                // 스케일 조정 (2배)
                 ctx.scale(2, 2);
 
-                // 1. 배경
-                ctx.fillStyle = "#0f172a";
-                ctx.fillRect(0, 0, 360, 640);
+                // 배경
+                ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, 360, 640);
                 
-                // 2. 상단 타이틀 (성공/실패 여부)
+                // 타이틀
                 ctx.textAlign = "center";
-                ctx.fillStyle = gameState === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; // Bright Yellow
+                ctx.fillStyle = gameState === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; 
                 ctx.font = "900 32px sans-serif";
                 const title = gameState === 'STAGE_CLEAR' ? `STAGE ${stage} 완수!` : "도전 결과";
                 ctx.fillText(title, 180, 80);
 
-                // 3. 점수 표시
+                // 점수
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 24px sans-serif";
                 ctx.fillText(`${score}점`, 180, 120);
 
-                // 4. 후보 사진 (원형 프레임)
+                // 사진
                 if (imageLoaded && candidateImageRef.current) {
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(180, 200, 50, 0, Math.PI * 2);
-                    ctx.closePath();
-                    ctx.clip();
-                    ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100);
-                    ctx.restore();
-                    // 테두리
-                    ctx.beginPath();
-                    ctx.arc(180, 200, 50, 0, Math.PI * 2);
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = "#fbbf24";
-                    ctx.stroke();
+                    ctx.save(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+                    ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100); ctx.restore();
+                    ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = "#fbbf24"; ctx.stroke();
+                } else {
+                    // 사진 없을 때 대체
+                    ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.fillStyle = "#3b82f6"; ctx.fill();
+                    ctx.fillStyle = "white"; ctx.font = "bold 20px sans-serif"; ctx.fillText("최병관", 180, 208);
                 }
 
-                // 5. 정책 달성 목록 (카드 디자인)
+                // 정책 목록 (현재 상태 achievedPolicies 기반)
                 const policies = POLICY_LIST[(stage - 1) % POLICY_LIST.length];
                 let startY = 300;
                 
@@ -232,37 +221,36 @@
                     ctx.fill();
 
                     // 텍스트 & 아이콘
-                    ctx.font = "bold 16px sans-serif";
+                    ctx.font = "bold 14px sans-serif";
                     ctx.fillStyle = isSolved ? "#ffffff" : "#64748b";
-                    ctx.fillText(isSolved ? "✅" : "⬜", 50, startY + (i*50) + 26);
-                    ctx.fillText(text, 80, startY + (i*50) + 26);
                     
-                    // 스탬프 효과
+                    // 체크박스 그리기
+                    ctx.beginPath();
+                    ctx.arc(60, startY + (i*50) + 20, 10, 0, Math.PI*2);
+                    if(isSolved) {
+                        ctx.fillStyle = "#22c55e"; ctx.fill();
+                        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+                        ctx.moveTo(56, startY + (i*50) + 20); ctx.lineTo(59, startY + (i*50) + 23); ctx.lineTo(64, startY + (i*50) + 17); ctx.stroke();
+                    } else {
+                        ctx.strokeStyle = "#64748b"; ctx.stroke();
+                    }
+
+                    ctx.fillStyle = isSolved ? "#ffffff" : "#64748b";
+                    ctx.fillText(text, 85, startY + (i*50) + 25);
+                    
                     if (isSolved) {
-                        ctx.save();
-                        ctx.translate(280, startY + (i*50) + 20);
-                        ctx.rotate(-0.2);
-                        ctx.strokeStyle = "#ef4444";
-                        ctx.lineWidth = 2;
-                        if (ctx.roundRect) ctx.roundRect(-30, -12, 60, 24, 4);
-                        else ctx.strokeRect(-30, -12, 60, 24);
-                        ctx.stroke();
-                        ctx.fillStyle = "#ef4444";
-                        ctx.font = "bold 12px sans-serif";
-                        ctx.textAlign = "center";
-                        ctx.fillText("격파완료", 0, 4);
-                        ctx.restore();
+                        ctx.save(); ctx.translate(280, startY + (i*50) + 20); ctx.rotate(-0.2);
+                        ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 2; ctx.strokeRect(-30, -12, 60, 24);
+                        ctx.fillStyle = "#ef4444"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
+                        ctx.fillText("격파완료", 0, 4); ctx.restore();
                     }
                 });
 
-                // 6. 하단 메시지 & 로고
+                // 하단 메시지
                 const footerY = 550;
-                ctx.textAlign = "center";
-                ctx.fillStyle = "#3b82f6";
-                ctx.font = "bold 14px sans-serif";
+                ctx.textAlign = "center"; ctx.fillStyle = "#3b82f6"; ctx.font = "bold 14px sans-serif";
                 ctx.fillText("최병관과 함께", 180, footerY);
-                ctx.font = "900 20px sans-serif";
-                ctx.fillStyle = "#ffffff";
+                ctx.font = "900 20px sans-serif"; ctx.fillStyle = "#ffffff";
                 ctx.fillText("익산 대전환, 지금 시작합니다!", 180, footerY + 30);
 
                 const link = document.createElement('a');
@@ -271,43 +259,32 @@
                 link.click();
             };
 
-            const handleFileDownload = () => {
-                const htmlContent = document.documentElement.outerHTML;
-                const blob = new Blob([htmlContent], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = '최병관_규제격파.html';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            };
-
+            // --- [수정] 공유 기능 (Web Share API) ---
             const handleShareLink = async () => {
                 const shareData = {
                     title: '최병관의 규제 격파',
                     text: `저는 최병관 후보와 함께 규제를 격파하고 ${score}점을 달성했습니다! 당신도 도전해보세요.`,
                     url: window.location.href
                 };
-
-                // 스마트폰 네이티브 공유 시도
                 if (navigator.share) {
-                    try {
-                        await navigator.share(shareData);
-                    } catch (err) {
-                        console.log('Error sharing:', err);
-                    }
+                    try { await navigator.share(shareData); } catch (err) { console.log('Error sharing:', err); }
                 } else {
-                    // PC 등 미지원 시 클립보드 복사
                     const dummy = document.createElement('input');
                     document.body.appendChild(dummy);
                     dummy.value = window.location.href;
                     dummy.select();
                     document.execCommand('copy');
                     document.body.removeChild(dummy);
-                    alert("🔗 링크가 복사되었습니다! 카톡방에 붙여넣어 공유해주세요.");
+                    alert("🔗 링크가 복사되었습니다! 카톡방에 공유해주세요.");
                 }
+            };
+            
+            const handleFileDownload = () => {
+                const htmlContent = document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = '최병관_규제격파.html';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
             };
 
             // --- Logic ---
@@ -358,8 +335,7 @@
                     else if (ball.y + ball.dy > GAME_HEIGHT - BALL_RADIUS) {
                         setLives(prev => {
                             const newLives = prev - 1;
-                            if (newLives <= 0) setGameState('GAMEOVER');
-                            else resetBall();
+                            if (newLives <= 0) setGameState('GAMEOVER'); else resetBall();
                             return newLives;
                         });
                     }
