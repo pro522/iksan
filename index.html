@@ -22,7 +22,7 @@
     <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 4. Firebase 라이브러리 (Compat) -->
+    <!-- 4. Firebase 라이브러리 (Compat 버전) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -56,7 +56,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // [설정] 이미지 경로 (깃허브에 업로드한 candidate.png 사용)
+        // [설정] 이미지 경로
         const CANDIDATE_IMG_PATH = "./candidate.png";
 
         // [설정] Firebase 초기화 (안전 모드)
@@ -102,37 +102,71 @@
         // ==================================================================================
         const IntroScreen = ({ onStart }) => {
             const [imgError, setImgError] = useState(false);
-            const [visitorCount, setVisitorCount] = useState(15284); 
-            const [countKey, setCountKey] = useState(0);
+            const [visitorCount, setVisitorCount] = useState(0);
 
             useEffect(() => {
-                const saved = localStorage.getItem('iksan_visitor_count');
-                let current = saved ? parseInt(saved) : 15284;
-                
-                current += 1;
-                setVisitorCount(current);
-                localStorage.setItem('iksan_visitor_count', current.toString());
-                setCountKey(prev => prev + 1);
+                let unsubscribe = null;
 
-                const interval = setInterval(() => {
-                    setVisitorCount(prev => {
-                        const next = prev + Math.floor(Math.random() * 3) + 1;
-                        localStorage.setItem('iksan_visitor_count', next.toString());
-                        return next;
-                    });
-                    setCountKey(prev => prev + 1); 
-                }, 3500); 
+                const runLocalMode = () => {
+                    const saved = parseInt(localStorage.getItem('iksan_real_visits') || '0');
+                    const nextCount = saved + 1;
+                    setVisitorCount(nextCount);
+                    localStorage.setItem('iksan_real_visits', nextCount.toString());
+                };
 
-                return () => clearInterval(interval);
+                const initFirebaseLogic = async () => {
+                    if (!isFirebaseAvailable || !auth || !db) {
+                        runLocalMode();
+                        return;
+                    }
+
+                    try {
+                        if (window.__initial_auth_token) {
+                            await auth.signInWithCustomToken(window.__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+
+                        const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('visitor_stats').doc('global_counter');
+
+                        db.runTransaction(async (transaction) => {
+                            const sfDoc = await transaction.get(docRef);
+                            if (!sfDoc.exists) {
+                                transaction.set(docRef, { count: 1 });
+                            } else {
+                                const newCount = (sfDoc.data().count || 0) + 1;
+                                transaction.update(docRef, { count: newCount });
+                            }
+                        }).catch(err => {
+                            console.warn("DB Update Failed (Permission?):", err);
+                            runLocalMode();
+                        });
+
+                        unsubscribe = docRef.onSnapshot((snap) => {
+                            if (snap.exists) {
+                                setVisitorCount(snap.data().count || 0);
+                            }
+                        }, (error) => {
+                            console.warn("DB Read Failed:", error);
+                        });
+
+                    } catch (e) {
+                        console.warn("Firebase Error:", e);
+                        runLocalMode();
+                    }
+                };
+
+                setTimeout(initFirebaseLogic, 500);
+                return () => { if(unsubscribe) unsubscribe(); };
             }, []);
 
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 max-w-md mx-auto relative overflow-hidden animate-fade-in">
                     
                     {/* Visitor Count Badge */}
-                    <div key={countKey} className="absolute top-4 right-4 bg-slate-800/80 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30 flex items-center shadow-lg z-20 animate-count">
+                    <div className="absolute top-4 right-4 bg-slate-800/80 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30 flex items-center shadow-lg z-20">
                         <Users size={12} className="mr-1"/>
-                        참여: {visitorCount.toLocaleString()}명
+                        참여: {visitorCount > 0 ? visitorCount.toLocaleString() : "..."}명
                     </div>
 
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
@@ -189,7 +223,7 @@
                     </button>
 
                     <p className="mt-6 text-xs text-slate-500 text-center">
-                        2026 익산시장 출마예정자 | 선거캠프 전략기획실
+                        익산시장 예비후보 최병관 | 선거캠프 전략기획실
                     </p>
                 </div>
             );
@@ -225,7 +259,6 @@
             ];
             const STAGE_TITLES = ["민생 살리기", "청년과 미래", "익산 대도약"];
             
-            // Difficulty Settings
             const DIFFICULTY_SETTINGS = {
                 EASY: { label: "쉬움", speed: 2, paddleWidth: 100, lives: 5, color: "bg-green-500", text: "text-green-400" },
                 NORMAL: { label: "보통", speed: 3, paddleWidth: 80, lives: 3, color: "bg-blue-500", text: "text-blue-400" },
@@ -300,14 +333,10 @@
 
             useEffect(() => {
                 const img = new Image();
-                // [수정] 동일 도메인 이미지 CORS 문제 해결을 위해 crossOrigin 속성 제거
-                // 깃허브 페이지에서 로컬 이미지 사용 시 이게 더 안정적임
-                img.onload = () => {
-                    candidateImageRef.current = img;
-                    setImageLoaded(true);
-                };
-                img.onerror = () => { setImageLoaded(false); }
+                img.crossOrigin = "anonymous";
                 img.src = CANDIDATE_IMG_PATH;
+                img.onload = () => { candidateImageRef.current = img; setImageLoaded(true); };
+                img.onerror = () => { setImageLoaded(false); }
             }, []);
 
             // --- Save Screenshot Helper ---
@@ -323,7 +352,6 @@
                 ctx.textAlign = "center";
                 ctx.fillStyle = gameStateRef.current === 'STAGE_CLEAR' ? "#facc15" : "#fbbf24"; 
                 ctx.font = "900 32px sans-serif";
-                // [여기입니다!] 인증서 이미지에 '도전 결과' 텍스트 그리는 부분
                 const title = gameStateRef.current === 'STAGE_CLEAR' ? `STAGE ${stageRef.current} 완수!` : "도전 결과";
                 ctx.fillText(title, 180, 80);
 
@@ -331,40 +359,15 @@
                 ctx.font = "bold 24px sans-serif";
                 ctx.fillText(`${scoreRef.current}점`, 180, 120);
 
-                // 사진 (인증서용)
-                ctx.save();
-                ctx.beginPath(); 
-                ctx.arc(180, 200, 50, 0, Math.PI * 2); 
-                ctx.closePath(); 
-                ctx.clip();
-                
-                // [수정] 이미지 그리기 로직 강화
+                // 사진
+                ctx.save(); ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
                 if (imageLoaded && candidateImageRef.current) {
-                    try {
-                        ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100);
-                    } catch(e) {
-                        // 그리기 실패 시 회색 박스
-                        console.error("Canvas drawImage error:", e);
-                        ctx.fillStyle = "#334155"; 
-                        ctx.fillRect(130, 150, 100, 100);
-                    }
+                    try { ctx.drawImage(candidateImageRef.current, 130, 150, 100, 100); } 
+                    catch(e) { ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); }
                 } else {
-                    // 이미지 없을 때
-                    ctx.fillStyle = "#334155"; 
-                    ctx.fillRect(130, 150, 100, 100);
-                    
-                    // 기본 아이콘 그리기 (사람 모양)
-                    ctx.fillStyle = "#94a3b8";
-                    ctx.beginPath();
-                    ctx.arc(180, 190, 20, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(180, 230, 30, Math.PI, 0);
-                    ctx.fill();
+                    ctx.fillStyle = "#334155"; ctx.fillRect(130, 150, 100, 100); 
                 }
                 ctx.restore();
-
-                // 테두리
                 ctx.beginPath(); ctx.arc(180, 200, 50, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = "#fbbf24"; ctx.stroke();
 
                 const policies = POLICY_LIST[(stageRef.current - 1) % POLICY_LIST.length];
@@ -565,16 +568,31 @@
             };
 
             const startStageIntro = () => {
+                const lives = DIFFICULTY_SETTINGS[difficultyRef.current].lives;
                 scoreRef.current = 0;
-                livesRef.current = DIFFICULTY_SETTINGS[difficultyRef.current].lives;
+                livesRef.current = lives;
                 stageRef.current = 1;
                 achievedPoliciesRef.current = [];
-                updateGameState('STAGE_INTRO');
+                gameStateRef.current = 'STAGE_INTRO';
+                
+                setUiState(prev => ({
+                    ...prev,
+                    score: 0,
+                    lives: lives,
+                    stage: 1,
+                    achievedPolicies: [],
+                    gameState: 'STAGE_INTRO'
+                }));
             };
 
             const nextStage = () => {
                 stageRef.current += 1;
-                updateGameState('STAGE_INTRO');
+                gameStateRef.current = 'STAGE_INTRO';
+                setUiState(prev => ({
+                    ...prev,
+                    stage: stageRef.current,
+                    gameState: 'STAGE_INTRO'
+                }));
             };
 
             const render = () => {
@@ -666,7 +684,7 @@
 
                         {uiState.gameState === 'START' && (
                             <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
-                                {/* [수정] START 화면에 후보 사진 추가 */}
+                                {/* START 화면에 후보 사진 추가 */}
                                 {imageLoaded && (
                                     <div className="w-24 h-24 rounded-full border-4 border-yellow-400 shadow-lg overflow-hidden mb-4 bg-blue-600">
                                         <img src={CANDIDATE_IMG_PATH} alt="후보" className="w-full h-full object-cover" />
@@ -675,6 +693,7 @@
                                 <Zap className="w-16 h-16 text-yellow-400 mb-2 animate-pulse" />
                                 <h1 className="text-2xl font-black mb-1">규제 격파</h1>
                                 <p className="text-blue-300 font-bold mb-4 text-sm">"최병관의 정책으로 익산을 뚫어라!"</p>
+                                
                                 <div className="bg-white/10 p-3 rounded-lg w-full mb-4">
                                     <p className="text-xs text-slate-300 mb-2 font-bold">난이도 선택</p>
                                     <div className="flex gap-2 justify-center">
@@ -686,13 +705,9 @@
                                     </div>
                                     <p className={`text-[10px] mt-2 ${DIFFICULTY_SETTINGS[uiState.difficulty].text}`}>* {uiState.difficulty === 'EASY' ? "천천히 즐기세요" : uiState.difficulty === 'NORMAL' ? "표준 속도" : "매우 빠름!"}</p>
                                 </div>
-                                <div className="flex flex-col gap-2 w-full max-w-[200px] relative z-30">
-                                    <button 
-                                        onClick={startStageIntro} 
-                                        className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center text-sm transition-transform active:scale-95 cursor-pointer"
-                                    >
-                                        <Play className="mr-2 inline w-4 h-4" /> 출동하기
-                                    </button>
+                                <div className="flex flex-col gap-2 w-full max-w-[200px]">
+                                    <button onClick={startStageIntro} className="bg-blue-600 px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center animate-bounce text-sm"><Play className="mr-2 inline w-4 h-4" /> 출동하기</button>
+                                    <button onClick={handleFileDownload} className="bg-slate-600 px-6 py-2 rounded-full font-bold text-xs flex items-center justify-center text-slate-200 hover:bg-slate-500"><Download className="mr-2 inline w-3 h-3" /> 게임 파일 저장</button>
                                 </div>
                             </div>
                         )}
@@ -714,6 +729,7 @@
                             </div>
                         )}
 
+                        {/* 모달 팝업 */}
                         {resultImage && (
                             <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
                                 <p className="text-white text-lg font-bold mb-4 animate-pulse text-center">{/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "이미지를 길게 눌러 저장하세요!" : "이미지를 우클릭하여 저장하세요!"}</p>
@@ -724,7 +740,7 @@
 
                         {uiState.gameState === 'STAGE_CLEAR' && (
                             <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-center p-6 animate-fade-in" style={{height: `${GAME_HEIGHT}px`}}>
-                                {/* [수정] CLEAR 화면에 후보 사진 추가 */}
+                                {/* CLEAR 화면에 후보 사진 추가 */}
                                 {imageLoaded && (
                                     <div className="w-20 h-20 rounded-full border-4 border-green-400 shadow-lg overflow-hidden mb-4 bg-blue-600">
                                         <img src={CANDIDATE_IMG_PATH} alt="후보" className="w-full h-full object-cover" />
@@ -757,7 +773,7 @@
 
                         {uiState.gameState === 'GAMEOVER' && (
                             <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-white text-center p-6" style={{height: `${GAME_HEIGHT}px`}}>
-                                {/* [수정] GAMEOVER 화면에 후보 사진 추가 */}
+                                {/* GAMEOVER 화면에 후보 사진 추가 */}
                                 {imageLoaded && (
                                     <div className="w-20 h-20 rounded-full border-4 border-red-500 shadow-lg overflow-hidden mb-4 bg-blue-600 grayscale">
                                         <img src={CANDIDATE_IMG_PATH} alt="후보" className="w-full h-full object-cover" />
@@ -780,7 +796,7 @@
                                         })}
                                     </div>
                                 </div>
-                                <div className="flex gap-2 w-full justify-center mb-2"><button onClick={() => { setScore(0); setLives(DIFFICULTY_SETTINGS[difficultyRef.current].lives); setStage(1); setAchievedPolicies([]); updateGameState('STAGE_INTRO'); }} className="bg-yellow-500 text-black px-6 py-3 rounded-lg font-bold flex items-center shadow-lg hover:bg-yellow-400 text-sm w-full justify-center"><RotateCcw size={16} className="mr-2"/>최병관과 함께 재도전</button></div>
+                                <div className="flex gap-2 w-full justify-center mb-2"><button onClick={startStageIntro} className="bg-yellow-500 text-black px-6 py-3 rounded-lg font-bold flex items-center shadow-lg hover:bg-yellow-400 text-sm w-full justify-center"><RotateCcw size={16} className="mr-2"/>최병관과 함께 재도전</button></div>
                                 <div className="flex gap-2 w-full justify-center">
                                     <button onClick={handleSaveImage} className="bg-slate-700 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-slate-600 text-xs"><Camera size={14} className="mr-1"/> 결과 자랑하기</button>
                                     <button onClick={handleShareLink} className="bg-yellow-600 text-white px-3 py-3 rounded-lg font-bold flex flex-1 items-center justify-center shadow-lg hover:bg-yellow-500 text-xs"><Share2 size={14} className="mr-1"/> 친구에게 공유</button>
